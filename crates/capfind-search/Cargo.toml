@@ -1,0 +1,18 @@
+[package]
+name        = "capfind-search"
+version     = { workspace = true }
+edition     = { workspace = true }
+rust-version= { workspace = true }
+authors     = { workspace = true }
+license     = { workspace = true }
+description = "capfind: deterministic search (tokenize + BM25 + boosts + explain)"
+repository  = { workspace = true }
+
+[dependencies]
+capfind-core = { workspace = true }
+ahash        = { workspace = true }
+once_cell    = { workspace = true }
+serde        = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }

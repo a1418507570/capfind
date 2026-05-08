@@ -1,0 +1,9 @@
+[package]
+name        = "xtask"
+version     = "0.0.1"
+edition     = "2021"
+publish     = false
+description = "capfind: build/bench/release chores (invoked via `cargo xtask`)"
+
+[dependencies]
+anyhow = { workspace = true }

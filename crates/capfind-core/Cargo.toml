@@ -1,0 +1,21 @@
+[package]
+name        = "capfind-core"
+version     = { workspace = true }
+edition     = { workspace = true }
+rust-version= { workspace = true }
+authors     = { workspace = true }
+license     = { workspace = true }
+description = "capfind: data model + index IO (bincode + zstd)"
+repository  = { workspace = true }
+
+[dependencies]
+serde     = { workspace = true }
+bincode   = { workspace = true }
+zstd      = { workspace = true }
+ahash     = { workspace = true }
+blake3    = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile          = { workspace = true }
+pretty_assertions = { workspace = true }

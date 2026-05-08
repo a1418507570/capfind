@@ -1,0 +1,5 @@
+# capfind's own ignore file — layered on top of .gitignore.
+# Use gitignore syntax. Paths are repo-relative.
+
+/target
+/fixtures/**/target
