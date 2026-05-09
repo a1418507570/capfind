@@ -3,11 +3,16 @@ use clap::{Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
 mod commands;
+mod config;
 mod fmt;
 mod indexer;
 
 #[derive(Parser)]
-#[command(name = "capfind", version, about = "Find reusable capabilities in big polyglot repos")]
+#[command(
+    name = "capfind",
+    version,
+    about = "Find reusable capabilities in big polyglot repos"
+)]
 pub struct Cli {
     /// Disable colored output
     #[arg(long, global = true)]

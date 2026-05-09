@@ -6,8 +6,9 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use anyhow::{bail, Context, Result};
 
 use capfind_core::{load_index, write_index, Kind, Lang};
-use capfind_search::{search, ScorerConfig};
+use capfind_search::search;
 
+use crate::config;
 use crate::fmt as output;
 use crate::indexer;
 use crate::FindArgs;
@@ -108,6 +109,7 @@ pub fn find(repo_root: &Path, args: &FindArgs, no_color: bool) -> Result<()> {
         bail!("Please provide query terms, e.g.: capfind find mdm query");
     }
 
+    let cfg = config::load(repo_root)?;
     let has_filters = args.lang.is_some() || args.kind.is_some() || args.path.is_some();
     let search_limit = if has_filters {
         body.capabilities.len().max(args.limit)
@@ -121,7 +123,7 @@ pub fn find(repo_root: &Path, args: &FindArgs, no_color: bool) -> Result<()> {
         &body.postings,
         &body.vocab,
         body.avgdl,
-        &ScorerConfig::default(),
+        &cfg.search,
         search_limit,
         args.explain,
     );
@@ -295,6 +297,7 @@ version = 1
 # include = ["**/*.java", "**/*.go", "**/*.proto"]
 
 [search]
+# BM25 tuning. k1 must be > 0; b must be between 0 and 1.
 # k1 = 1.2
 # b = 0.4
 
