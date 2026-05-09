@@ -21,20 +21,50 @@ pub fn print_compact(hits: &[&Hit], caps: &[Capability], no_color: bool) {
             } else {
                 http.method.clone()
             };
-            println!("{} {}  ·  {}  ·  score {:.1}",
-                method_colored, http.path, kind_str, hit.score);
+            println!(
+                "{} {}  ·  {}  ·  score {:.1}",
+                method_colored, http.path, kind_str, hit.score
+            );
         } else {
-            println!("{}  ·  {}  ·  score {:.1}",
-                cap.qualified(), kind_str, hit.score);
+            println!(
+                "{}  ·  {}  ·  score {:.1}",
+                cap.qualified(),
+                kind_str,
+                hit.score
+            );
         }
 
         // Line 2: qualified method + signature.
-        println!("  {}({})",
-            cap.qualified(),
-            short_params(&cap.signature));
+        println!("  {}({})", cap.qualified(), short_params(&cap.signature));
 
         // Line 3: file:line
         println!("  {}:{}", cap.file, cap.line);
+
+        if let Some(ref explain) = hit.explain {
+            println!(
+                "  explain: bm25 {:.2} -> final {:.2}",
+                explain.bm25_raw, explain.final_score
+            );
+            if !explain.boosts.is_empty() {
+                let boosts = explain
+                    .boosts
+                    .iter()
+                    .map(|(name, factor)| format!("{}×{:.2}", name, factor))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                println!("           boosts: {}", boosts);
+            }
+            if !explain.term_hits.is_empty() {
+                let terms = explain
+                    .term_hits
+                    .iter()
+                    .take(6)
+                    .map(|t| format!("{}@{:?} tf={} w={:.2}", t.term, t.field, t.tf, t.weight))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                println!("           terms: {}", terms);
+            }
+        }
 
         println!();
     }
@@ -49,33 +79,53 @@ pub fn print_json(
 ) -> anyhow::Result<()> {
     use serde_json::json;
 
-    let results: Vec<_> = hits.iter().map(|h| {
-        let cap = &caps[h.cap_id as usize];
-        let mut obj = json!({
-            "id": cap.id,
-            "score": (h.score * 10.0).round() / 10.0,
-            "kind": cap.kind.as_str(),
-            "lang": cap.lang.as_str(),
-            "class": cap.class,
-            "method": cap.method,
-            "signature": cap.signature,
-            "file": cap.file,
-            "line": cap.line,
-        });
-        if let Some(ref http) = cap.http {
-            obj["http"] = json!({
-                "method": http.method,
-                "path": http.path,
+    let results: Vec<_> = hits
+        .iter()
+        .map(|h| {
+            let cap = &caps[h.cap_id as usize];
+            let mut obj = json!({
+                "id": cap.id,
+                "score": (h.score * 10.0).round() / 10.0,
+                "kind": cap.kind.as_str(),
+                "lang": cap.lang.as_str(),
+                "class": cap.class,
+                "method": cap.method,
+                "signature": cap.signature,
+                "file": cap.file,
+                "line": cap.line,
             });
-        }
-        if let Some(ref rpc) = cap.rpc {
-            obj["rpc"] = json!({
-                "service": rpc.service,
-                "rpc": rpc.rpc,
-            });
-        }
-        obj
-    }).collect();
+            if let Some(ref http) = cap.http {
+                obj["http"] = json!({
+                    "method": http.method,
+                    "path": http.path,
+                });
+            }
+            if let Some(ref rpc) = cap.rpc {
+                obj["rpc"] = json!({
+                    "service": rpc.service,
+                    "rpc": rpc.rpc,
+                });
+            }
+            if let Some(ref explain) = h.explain {
+                obj["explain"] = json!({
+                    "bm25_raw": explain.bm25_raw,
+                    "boosts": explain.boosts.iter().map(|(name, factor)| json!({
+                        "name": name,
+                        "factor": factor,
+                    })).collect::<Vec<_>>(),
+                    "term_hits": explain.term_hits.iter().map(|t| json!({
+                        "term": t.term,
+                        "field": format!("{:?}", t.field),
+                        "tf": t.tf,
+                        "weight": t.weight,
+                        "is_synonym": t.is_synonym,
+                    })).collect::<Vec<_>>(),
+                    "final_score": explain.final_score,
+                });
+            }
+            obj
+        })
+        .collect();
 
     let output = json!({
         "query": query,

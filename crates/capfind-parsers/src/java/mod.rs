@@ -47,40 +47,30 @@ static PREFILTER: Lazy<AhoCorasick> = Lazy::new(|| {
 
 /// Detects class-level stereotype.
 static CLASS_ANNOTATION_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(?m)^\s*@(RestController|Controller|Service|Repository|Component)\b")
-        .unwrap()
+    Regex::new(r"(?m)^\s*@(RestController|Controller|Service|Repository|Component)\b").unwrap()
 });
 
-/// Extracts class-level @RequestMapping path(s).
-/// Handles: @RequestMapping("/foo"), @RequestMapping(value="/foo"),
-///          @RequestMapping({"/a", "/b"}), @RequestMapping(path="/foo")
-static CLASS_PATH_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(
-        r#"(?m)@RequestMapping\s*\(\s*(?:(?:value|path)\s*=\s*)?(?:\{([^}]*)\}|"([^"]*)")"#
-    )
-    .unwrap()
-});
+/// Extracts the paren content of class-level @RequestMapping.
+static CLASS_MAPPING_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r#"(?m)@RequestMapping\s*(?:\(([^)]*)\))?"#).unwrap());
+
+/// Extracts mapping path attributes from annotation paren content.
+static PATH_ATTR_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r#"(?:value|path)\s*=\s*(?:\{([^}]*)\}|"([^"]*)")"#).unwrap());
 
 /// Extracts method-level HTTP mapping annotation.
 /// Group 1 = annotation type (Get|Post|Put|Delete|Patch|Request)
 /// Group 2 = everything inside parens (may be empty for @GetMapping without args)
 static METHOD_MAPPING_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(
-        r#"(?m)@(Get|Post|Put|Delete|Patch|Request)Mapping\s*(?:\(([^)]*)\))?"#
-    )
-    .unwrap()
+    Regex::new(r#"(?m)@(Get|Post|Put|Delete|Patch|Request)Mapping\s*(?:\(([^)]*)\))?"#).unwrap()
 });
 
 /// From a mapping's paren content, extract path(s).
 /// Handles: "/foo", value="/foo", value={"/a","/b"}, path="/foo"
-static PATH_VALUE_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r#""([^"]*)""#).unwrap()
-});
+static PATH_VALUE_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r#""([^"]*)""#).unwrap());
 
-/// From @RequestMapping's paren content, extract method = RequestMethod.XXX.
-static REQUEST_METHOD_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"method\s*=\s*(?:\{[^}]*\}|RequestMethod\.(\w+))").unwrap()
-});
+/// From @RequestMapping's paren content, extract RequestMethod.XXX entries.
+static REQUEST_METHOD_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"RequestMethod\.(\w+)").unwrap());
 
 /// Matches a method signature (public or protected), capturing:
 ///   1: return type (with generics)
@@ -88,20 +78,17 @@ static REQUEST_METHOD_RE: Lazy<Regex> = Lazy::new(|| {
 ///   3: parameter list (inside parens)
 static METHOD_SIG_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
-        r"(?m)^\s*(?:public|protected)\s+(?:static\s+)?([^\n{;]+?)\s+(\w+)\s*\(([^)]*)\)"
+        r"(?m)^[ \t]*(?:public|protected)[ \t]+(?:static[ \t]+)?([^\n{;]+?)[ \t]+(\w+)[ \t]*\(([^)]*)\)"
     )
     .unwrap()
 });
 
 /// Extracts Javadoc block preceding a method (up to 10 lines).
-static JAVADOC_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"/\*\*([\s\S]*?)\*/").unwrap()
-});
+static JAVADOC_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"/\*\*([\s\S]*?)\*/").unwrap());
 
 /// Custom annotations we want as tags.
-static TAG_ANNOTATION_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(?m)@(Permission(?:Limit)?)\s*(?:\(([^)]*)\))?").unwrap()
-});
+static TAG_ANNOTATION_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"(?m)@(Permission(?:Limit)?)\s*(?:\(([^)]*)\))?").unwrap());
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 
@@ -121,7 +108,7 @@ pub fn parse_java_file(path: &Path, src: &str) -> Vec<Capability> {
 
     // Split into top-level class bodies.
     for class in split_top_level_classes(src) {
-        extract_class_caps(&class, &file_str, &mut caps);
+        extract_class_caps(&class, src, &file_str, &mut caps);
     }
 
     caps
@@ -140,9 +127,8 @@ struct ClassSlice<'a> {
 
 /// Regex that finds the start of a class/interface/enum/record declaration.
 /// Matches "public class Foo", "abstract class Foo<T>", "interface Bar", etc.
-static CLASS_DECL_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(?m)^[^\n]*\b(?:class|interface|enum|record)\s+\w+").unwrap()
-});
+static CLASS_DECL_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"(?m)^[^\n]*\b(?:class|interface|enum|record)\s+\w+").unwrap());
 
 /// Split the file into top-level class bodies.
 ///
@@ -187,14 +173,15 @@ fn split_top_level_classes(src: &str) -> Vec<ClassSlice<'_>> {
 /// lines (`@Foo`, `@Bar(...)`), blank lines, and comment lines.
 fn walk_back_to_annotations(src: &str, decl_byte_pos: usize) -> usize {
     // Find the line start of the declaration.
-    let line_start = src[..decl_byte_pos]
-        .rfind('\n')
-        .map(|p| p + 1)
-        .unwrap_or(0);
+    let line_start = src[..decl_byte_pos].rfind('\n').map(|p| p + 1).unwrap_or(0);
 
     // Now walk backwards line by line using rfind('\n') for safe UTF-8 boundaries.
     let mut result = line_start;
-    let mut cursor = if line_start > 0 { line_start - 1 } else { return 0 };
+    let mut cursor = if line_start > 0 {
+        line_start - 1
+    } else {
+        return 0;
+    };
 
     loop {
         // Find the start of the current line.
@@ -218,7 +205,10 @@ fn walk_back_to_annotations(src: &str, decl_byte_pos: usize) -> usize {
 }
 
 fn find_char(bytes: &[u8], ch: u8, from: usize) -> Option<usize> {
-    bytes[from..].iter().position(|&b| b == ch).map(|p| from + p)
+    bytes[from..]
+        .iter()
+        .position(|&b| b == ch)
+        .map(|p| from + p)
 }
 
 /// Balance braces from `start` (which should point at `{`). Returns position of matching `}`.
@@ -255,7 +245,7 @@ fn balance_braces(bytes: &[u8], start: usize) -> Option<usize> {
 
 // ─── Per-class extraction ────────────────────────────────────────────────────
 
-fn extract_class_caps(class: &ClassSlice<'_>, file: &str, out: &mut Vec<Capability>) {
+fn extract_class_caps(class: &ClassSlice<'_>, src: &str, file: &str, out: &mut Vec<Capability>) {
     let text = class.text;
 
     // Determine class-level kind.
@@ -281,14 +271,21 @@ fn extract_class_caps(class: &ClassSlice<'_>, file: &str, out: &mut Vec<Capabili
         let method_text_start = method_match.start();
         // Find the next method signature after this annotation.
         let rest = &body_text[method_text_start..];
-        let Some(sig_match) = METHOD_SIG_RE.find(rest) else { continue };
+        let Some(sig_match) = METHOD_SIG_RE.find(rest) else {
+            continue;
+        };
         let sig_caps = METHOD_SIG_RE.captures(&rest[sig_match.start()..]).unwrap();
 
         let return_type = sig_caps.get(1).map_or("", |m| m.as_str()).trim();
         let method_name = sig_caps.get(2).map_or("", |m| m.as_str());
         let params = sig_caps.get(3).map_or("", |m| m.as_str()).trim();
 
-        let signature = format!("{} {}({})", return_type, method_name, normalize_params(params));
+        let signature = format!(
+            "{} {}({})",
+            return_type,
+            method_name,
+            normalize_params(params)
+        );
 
         // Parse the annotation itself.
         let annot_caps = METHOD_MAPPING_RE.captures(method_match.as_str()).unwrap();
@@ -310,9 +307,8 @@ fn extract_class_caps(class: &ClassSlice<'_>, file: &str, out: &mut Vec<Capabili
         // Javadoc.
         let doc = extract_javadoc_near(text, abs_pos);
 
-        // Compute line number.
-        let line_in_class = text[..abs_pos].matches('\n').count() as u32;
-        let line = byte_offset_to_line_hint(class.offset, line_in_class);
+        // Compute 1-based source line for the mapping annotation.
+        let line = byte_offset_to_line(src, class.offset + abs_pos);
 
         // For each final path, create a Capability.
         for path in &final_paths {
@@ -356,7 +352,7 @@ fn extract_class_caps(class: &ClassSlice<'_>, file: &str, out: &mut Vec<Capabili
 
     // Also capture @Service / @Repository methods that have NO HTTP mapping.
     if class_kind == Kind::ServiceMethod || class_kind == Kind::DaoMethod {
-        extract_service_methods(text, class, file, &class_name, class_kind, out);
+        extract_service_methods(text, class, src, file, &class_name, class_kind, out);
     }
 }
 
@@ -373,9 +369,8 @@ fn detect_class_kind(text: &str) -> Kind {
 }
 
 fn extract_class_name(text: &str) -> Option<String> {
-    static CLASS_NAME_RE: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r"(?:class|interface|enum|record)\s+(\w+)").unwrap()
-    });
+    static CLASS_NAME_RE: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"(?:class|interface|enum|record)\s+(\w+)").unwrap());
     CLASS_NAME_RE
         .captures(text)
         .and_then(|c| c.get(1))
@@ -383,37 +378,66 @@ fn extract_class_name(text: &str) -> Option<String> {
 }
 
 fn extract_class_paths(text: &str) -> Vec<String> {
-    let Some(caps) = CLASS_PATH_RE.captures(text) else {
+    let header = text
+        .find('{')
+        .map_or(text, |body_start| &text[..body_start]);
+    let Some(caps) = CLASS_MAPPING_RE.captures(header) else {
         return vec![];
     };
-    // Group 1 = {"/a", "/b"} contents; Group 2 = single "/foo"
-    if let Some(multi) = caps.get(1) {
-        PATH_VALUE_RE
-            .captures_iter(multi.as_str())
-            .filter_map(|c| c.get(1))
-            .map(|m| m.as_str().to_string())
-            .collect()
-    } else if let Some(single) = caps.get(2) {
-        vec![single.as_str().to_string()]
-    } else {
-        vec![]
-    }
+    let paren_content = caps.get(1).map_or("", |m| m.as_str());
+    let paths = extract_paths_from_paren(paren_content);
+    paths.into_iter().filter(|p| !p.is_empty()).collect()
 }
 
 fn extract_paths_from_paren(paren: &str) -> Vec<String> {
+    let paren = paren.trim();
     if paren.is_empty() {
         return vec!["".into()];
     }
-    let paths: Vec<String> = PATH_VALUE_RE
+
+    let attr_paths: Vec<String> = PATH_ATTR_RE
         .captures_iter(paren)
+        .flat_map(|caps| {
+            if let Some(multi) = caps.get(1) {
+                extract_quoted_literals(multi.as_str())
+            } else if let Some(single) = caps.get(2) {
+                vec![single.as_str().to_string()]
+            } else {
+                vec![]
+            }
+        })
+        .collect();
+    if !attr_paths.is_empty() {
+        return attr_paths;
+    }
+
+    let positional = paren.trim_start();
+    if positional.starts_with('"') {
+        return PATH_VALUE_RE
+            .captures(positional)
+            .and_then(|c| c.get(1))
+            .map(|m| vec![m.as_str().to_string()])
+            .unwrap_or_else(|| vec!["".into()]);
+    }
+
+    if positional.starts_with('{') {
+        if let Some(end) = positional.find('}') {
+            let paths: Vec<String> = extract_quoted_literals(&positional[..=end]);
+            if !paths.is_empty() {
+                return paths;
+            }
+        }
+    }
+
+    vec!["".into()]
+}
+
+fn extract_quoted_literals(s: &str) -> Vec<String> {
+    PATH_VALUE_RE
+        .captures_iter(s)
         .filter_map(|c| c.get(1))
         .map(|m| m.as_str().to_string())
-        .collect();
-    if paths.is_empty() {
-        vec!["".into()]
-    } else {
-        paths
-    }
+        .collect()
 }
 
 fn merge_paths(class_paths: &[String], method_paths: &[String]) -> Vec<String> {
@@ -421,13 +445,25 @@ fn merge_paths(class_paths: &[String], method_paths: &[String]) -> Vec<String> {
         return vec!["".into()];
     }
     let mut result = Vec::new();
-    let cp = if class_paths.is_empty() { &["".to_string()][..] } else { class_paths };
-    let mp = if method_paths.is_empty() { &["".to_string()][..] } else { method_paths };
+    let cp = if class_paths.is_empty() {
+        &["".to_string()][..]
+    } else {
+        class_paths
+    };
+    let mp = if method_paths.is_empty() {
+        &["".to_string()][..]
+    } else {
+        method_paths
+    };
 
     for c in cp {
         for m in mp {
             let merged = format!("{}{}", c.trim_end_matches('/'), ensure_leading_slash(m));
-            result.push(if merged.is_empty() { "/".into() } else { merged });
+            result.push(if merged.is_empty() {
+                "/".into()
+            } else {
+                merged
+            });
         }
     }
     result
@@ -451,11 +487,16 @@ fn determine_http_method(mapping_type: &str, paren_content: &str) -> String {
         "Delete" => "DELETE".into(),
         "Patch" => "PATCH".into(),
         "Request" => {
-            REQUEST_METHOD_RE
-                .captures(paren_content)
-                .and_then(|c| c.get(1))
+            let methods: Vec<String> = REQUEST_METHOD_RE
+                .captures_iter(paren_content)
+                .filter_map(|c| c.get(1))
                 .map(|m| m.as_str().to_uppercase())
-                .unwrap_or_else(|| "ANY".into())
+                .collect();
+            if methods.is_empty() {
+                "ANY".into()
+            } else {
+                methods.join(",")
+            }
         }
         _ => "ANY".into(),
     }
@@ -489,6 +530,7 @@ fn extract_javadoc_near(text: &str, pos: usize) -> Option<String> {
 fn extract_service_methods(
     text: &str,
     class: &ClassSlice<'_>,
+    src: &str,
     file: &str,
     class_name: &Option<String>,
     kind: Kind,
@@ -508,9 +550,13 @@ fn extract_service_methods(
         let method_name = sig_caps.get(2).map_or("", |m| m.as_str());
         let params = sig_caps.get(3).map_or("", |m| m.as_str()).trim();
 
-        let signature = format!("{} {}({})", return_type, method_name, normalize_params(params));
-        let line_in_class = text[..sig_start].matches('\n').count() as u32;
-        let line = byte_offset_to_line_hint(class.offset, line_in_class);
+        let signature = format!(
+            "{} {}({})",
+            return_type,
+            method_name,
+            normalize_params(params)
+        );
+        let line = byte_offset_to_line(src, class.offset + sig_start);
 
         out.push(Capability {
             id: 0,
@@ -542,11 +588,9 @@ fn normalize_params(raw: &str) -> String {
     raw.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-fn byte_offset_to_line_hint(class_offset: usize, lines_within: u32) -> u32 {
-    // Approximate: we don't track file-level line numbers for class_offset,
-    // but we can at least return lines_within + 1 (1-based).
-    // The CLI layer will do a proper line count when it reads the file.
-    lines_within + 1
+fn byte_offset_to_line(src: &str, byte_offset: usize) -> u32 {
+    let end = floor_char_boundary(src, byte_offset.min(src.len()));
+    src[..end].matches('\n').count() as u32 + 1
 }
 
 /// Floor a byte index to the nearest valid UTF-8 char boundary (towards 0).
@@ -621,8 +665,15 @@ public class MdmController {
     fn parses_multi_path_request_mapping() {
         let caps = parse_java_file(Path::new("src/MdmController.java"), CONTROLLER_SRC);
         let search_caps: Vec<_> = caps.iter().filter(|c| c.method == "search").collect();
-        assert_eq!(search_caps.len(), 2, "multi-path should generate 2 capabilities");
-        let paths: Vec<_> = search_caps.iter().map(|c| c.http.as_ref().unwrap().path.as_str()).collect();
+        assert_eq!(
+            search_caps.len(),
+            2,
+            "multi-path should generate 2 capabilities"
+        );
+        let paths: Vec<_> = search_caps
+            .iter()
+            .map(|c| c.http.as_ref().unwrap().path.as_str())
+            .collect();
         assert!(paths.contains(&"/mdm/v1/search"));
         assert!(paths.contains(&"/mdm/v2/search"));
         assert_eq!(search_caps[0].http.as_ref().unwrap().method, "POST");
@@ -652,6 +703,56 @@ public class UserService {
         assert_eq!(caps[0].method, "getUserById");
         assert_eq!(caps[1].method, "listUsers");
         assert!(caps[0].http.is_none());
+    }
+
+    #[test]
+    fn reports_real_file_lines() {
+        let caps = parse_java_file(Path::new("src/MdmController.java"), CONTROLLER_SRC);
+        let mdm_query = caps.iter().find(|c| c.method == "queryMdm").unwrap();
+        let detail = caps.iter().find(|c| c.method == "getDetail").unwrap();
+        assert_eq!(mdm_query.line, 13);
+        assert_eq!(detail.line, 18);
+
+        let service_caps = parse_java_file(Path::new("src/UserService.java"), SERVICE_SRC);
+        assert_eq!(service_caps[0].line, 7);
+    }
+
+    #[test]
+    fn ignores_non_path_mapping_attributes() {
+        let src = r#"
+package com.demo;
+
+@RestController
+@RequestMapping(path = "/api", produces = "application/json")
+public class ApiController {
+    @PostMapping(value = "/items", consumes = "application/json")
+    public ApiResult create(ItemRequest request) {
+        return service.create(request);
+    }
+}
+"#;
+        let caps = parse_java_file(Path::new("src/ApiController.java"), src);
+        assert_eq!(caps.len(), 1);
+        assert_eq!(caps[0].http.as_ref().unwrap().path, "/api/items");
+    }
+
+    #[test]
+    fn parses_request_mapping_method_arrays() {
+        let src = r#"
+package com.demo;
+
+@RestController
+public class ApiController {
+    @RequestMapping(value = "/items", method = {RequestMethod.GET, RequestMethod.POST})
+    public ApiResult items() {
+        return service.items();
+    }
+}
+"#;
+        let caps = parse_java_file(Path::new("src/ApiController.java"), src);
+        assert_eq!(caps.len(), 1);
+        assert_eq!(caps[0].http.as_ref().unwrap().method, "GET,POST");
+        assert_eq!(caps[0].http.as_ref().unwrap().path, "/items");
     }
 
     #[test]

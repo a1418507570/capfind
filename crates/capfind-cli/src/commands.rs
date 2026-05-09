@@ -3,13 +3,13 @@
 use std::path::Path;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 
-use capfind_core::{load_index, write_index, IndexBody, Kind, Lang};
+use capfind_core::{load_index, write_index, Kind, Lang};
 use capfind_search::{search, ScorerConfig};
 
-use crate::indexer;
 use crate::fmt as output;
+use crate::indexer;
 use crate::FindArgs;
 
 /// `capfind init` — create .capfind/ directory with config.
@@ -23,16 +23,30 @@ pub fn init(repo_root: &Path) -> Result<()> {
         println!("Created {}", config_path.display());
     }
 
+    let capfindignore_path = repo_root.join(".capfindignore");
+    if !capfindignore_path.exists() {
+        std::fs::write(&capfindignore_path, DEFAULT_CAPFINDIGNORE)?;
+        println!("Created {}", capfindignore_path.display());
+    }
+
     // Append to .gitignore if not already there.
     let gitignore = repo_root.join(".gitignore");
     let entry = ".capfind/";
-    let already = gitignore.exists() && std::fs::read_to_string(&gitignore)
-        .map(|c| c.contains(entry))
-        .unwrap_or(false);
+    let already = gitignore.exists()
+        && std::fs::read_to_string(&gitignore)
+            .map(|c| c.contains(entry))
+            .unwrap_or(false);
     if !already {
         use std::io::Write;
-        let mut f = std::fs::OpenOptions::new().create(true).append(true).open(&gitignore)?;
-        writeln!(f, "\n# capfind index (local cache, do not commit)\n{}", entry)?;
+        let mut f = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&gitignore)?;
+        writeln!(
+            f,
+            "\n# capfind index (local cache, do not commit)\n{}",
+            entry
+        )?;
         println!("Appended {} to .gitignore", entry);
     }
 
@@ -47,19 +61,34 @@ pub fn index(repo_root: &Path, _rehash: bool) -> Result<()> {
     println!("Scanning {}...", repo_root.display());
     let caps = indexer::scan_and_parse(repo_root)?;
     let scan_elapsed = start.elapsed();
-    println!("  Found {} capabilities in {:.2}s", caps.len(), scan_elapsed.as_secs_f64());
+    println!(
+        "  Found {} capabilities in {:.2}s",
+        caps.len(),
+        scan_elapsed.as_secs_f64()
+    );
 
     let build_start = Instant::now();
     let body = indexer::build_index(caps);
     let build_elapsed = build_start.elapsed();
-    println!("  Built index ({} vocab terms) in {:.2}s", body.vocab.len(), build_elapsed.as_secs_f64());
+    println!(
+        "  Built index ({} vocab terms) in {:.2}s",
+        body.vocab.len(),
+        build_elapsed.as_secs_f64()
+    );
 
     let index_path = repo_root.join(".capfind/index.cfi");
-    let created = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as i64;
+    let created = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64;
     write_index(&index_path, &body, created, [0u8; 32])?;
 
     let size = std::fs::metadata(&index_path).map(|m| m.len()).unwrap_or(0);
-    println!("  Wrote {} ({:.1} KB)", index_path.display(), size as f64 / 1024.0);
+    println!(
+        "  Wrote {} ({:.1} KB)",
+        index_path.display(),
+        size as f64 / 1024.0
+    );
     println!("  Total: {:.2}s", start.elapsed().as_secs_f64());
     Ok(())
 }
@@ -72,13 +101,19 @@ pub fn find(repo_root: &Path, args: &FindArgs, no_color: bool) -> Result<()> {
     }
 
     let start = Instant::now();
-    let (_header, body) = load_index(&index_path)
-        .context("Failed to load index")?;
+    let (_header, body) = load_index(&index_path).context("Failed to load index")?;
 
     let query = args.query.join(" ");
     if query.is_empty() {
         bail!("Please provide query terms, e.g.: capfind find mdm query");
     }
+
+    let has_filters = args.lang.is_some() || args.kind.is_some() || args.path.is_some();
+    let search_limit = if has_filters {
+        body.capabilities.len().max(args.limit)
+    } else {
+        args.limit
+    };
 
     let hits = search(
         &query,
@@ -87,43 +122,57 @@ pub fn find(repo_root: &Path, args: &FindArgs, no_color: bool) -> Result<()> {
         &body.vocab,
         body.avgdl,
         &ScorerConfig::default(),
-        args.limit,
+        search_limit,
         args.explain,
     );
 
     let elapsed = start.elapsed();
 
-    // Filter by lang/kind/path if requested.
-    let filtered: Vec<_> = hits.iter().filter(|h| {
-        let cap = &body.capabilities[h.cap_id as usize];
-        if let Some(ref lf) = args.lang {
-            let lang_ok = match lf {
-                crate::LangFilter::Java => cap.lang == Lang::Java,
-                crate::LangFilter::Go => cap.lang == Lang::Go,
-                crate::LangFilter::Proto => cap.lang == Lang::Proto,
-            };
-            if !lang_ok { return false; }
-        }
-        if let Some(ref kf) = args.kind {
-            let kind_ok = match kf {
-                crate::KindFilter::Endpoint => cap.kind == Kind::HttpEndpoint,
-                crate::KindFilter::Rpc => cap.kind == Kind::RpcMethod,
-                crate::KindFilter::Service => cap.kind == Kind::ServiceMethod,
-                crate::KindFilter::Dao => cap.kind == Kind::DaoMethod,
-            };
-            if !kind_ok { return false; }
-        }
-        if let Some(ref prefix) = args.path {
-            if !cap.file.starts_with(prefix.as_str()) { return false; }
-        }
-        true
-    }).collect();
+    // Filter by lang/kind/path before applying the user-visible limit.
+    let mut filtered: Vec<_> = hits
+        .iter()
+        .filter(|h| {
+            let cap = &body.capabilities[h.cap_id as usize];
+            if let Some(ref lf) = args.lang {
+                let lang_ok = match lf {
+                    crate::LangFilter::Java => cap.lang == Lang::Java,
+                    crate::LangFilter::Go => cap.lang == Lang::Go,
+                    crate::LangFilter::Proto => cap.lang == Lang::Proto,
+                };
+                if !lang_ok {
+                    return false;
+                }
+            }
+            if let Some(ref kf) = args.kind {
+                let kind_ok = match kf {
+                    crate::KindFilter::Endpoint => cap.kind == Kind::HttpEndpoint,
+                    crate::KindFilter::Rpc => cap.kind == Kind::RpcMethod,
+                    crate::KindFilter::Service => cap.kind == Kind::ServiceMethod,
+                    crate::KindFilter::Dao => cap.kind == Kind::DaoMethod,
+                };
+                if !kind_ok {
+                    return false;
+                }
+            }
+            if let Some(ref prefix) = args.path {
+                if !cap.file.starts_with(prefix.as_str()) {
+                    return false;
+                }
+            }
+            true
+        })
+        .collect();
+    filtered.truncate(args.limit);
 
     if args.json {
         output::print_json(&query, &filtered, &body.capabilities, elapsed)?;
     } else {
         output::print_compact(&filtered, &body.capabilities, no_color);
-        eprintln!("\n{} results in {:.0}ms", filtered.len(), elapsed.as_millis());
+        eprintln!(
+            "\n{} results in {:.0}ms",
+            filtered.len(),
+            elapsed.as_millis()
+        );
     }
 
     Ok(())
@@ -134,7 +183,9 @@ pub fn show(repo_root: &Path, id: u32, _no_color: bool) -> Result<()> {
     let index_path = repo_root.join(".capfind/index.cfi");
     let (_header, body) = load_index(&index_path).context("Failed to load index")?;
 
-    let cap = body.capabilities.get(id as usize)
+    let cap = body
+        .capabilities
+        .get(id as usize)
         .context(format!("No capability with id={id}"))?;
 
     println!("ID:         {}", cap.id);
@@ -204,8 +255,7 @@ pub fn diagnose(file: &Path) -> Result<()> {
     if !file.exists() {
         bail!("File not found: {}", file.display());
     }
-    let content = std::fs::read_to_string(file)
-        .context("Cannot read file")?;
+    let content = std::fs::read_to_string(file).context("Cannot read file")?;
     let caps = capfind_parsers::parse_file(file, &content);
 
     if caps.is_empty() {
@@ -216,8 +266,13 @@ pub fn diagnose(file: &Path) -> Result<()> {
 
     println!("Found {} capabilities in {}:\n", caps.len(), file.display());
     for (i, cap) in caps.iter().enumerate() {
-        println!("  [{}] {} · {} · line {}",
-            i, cap.kind.as_str(), cap.qualified(), cap.line);
+        println!(
+            "  [{}] {} · {} · line {}",
+            i,
+            cap.kind.as_str(),
+            cap.qualified(),
+            cap.line
+        );
         if let Some(ref http) = cap.http {
             println!("       {} {}", http.method, http.path);
         }
@@ -245,4 +300,20 @@ version = 1
 
 [synonyms]
 # mdm = ["master-data"]
+"#;
+
+const DEFAULT_CAPFINDIGNORE: &str = r#"# capfind ignore file — layered on top of .gitignore.
+# Use gitignore syntax. Paths are repo-relative.
+
+/target
+/build
+/node_modules
+/vendor
+/.gradle
+/generated
+**/*Test.java
+**/*Tests.java
+**/src/test/**
+**/*_test.go
+**/*.pb.go
 "#;

@@ -126,6 +126,16 @@ pub fn search(
     } else {
         vec![]
     };
+    let mut bm25_raws: Vec<f32> = if explain {
+        vec![0.0; caps.len()]
+    } else {
+        vec![]
+    };
+    let mut boost_details: Vec<Vec<(&'static str, f32)>> = if explain {
+        vec![Vec::new(); caps.len()]
+    } else {
+        vec![]
+    };
 
     for &(tid, term_weight) in &weighted_terms {
         let Some(posts) = postings.get(&tid) else {
@@ -136,7 +146,9 @@ pub fn search(
         // df = number of DISTINCT capabilities that contain this term (not total postings).
         let df = {
             let mut seen = std::collections::HashSet::new();
-            for p in posts { seen.insert(p.cap_id); }
+            for p in posts {
+                seen.insert(p.cap_id);
+            }
             seen.len() as f32
         };
         let idf = ((n - df + 0.5) / (df + 0.5) + 1.0).ln();
@@ -154,7 +166,10 @@ pub fn search(
             scores[posting.cap_id as usize] += idf * tf_norm;
 
             if explain {
-                let term_str = vocab.get(tid as usize).map(|s| s.clone()).unwrap_or_default();
+                let term_str = vocab
+                    .get(tid as usize)
+                    .map(|s| s.clone())
+                    .unwrap_or_default();
                 term_details[posting.cap_id as usize].push(TermHit {
                     term: term_str,
                     field: posting.field,
@@ -202,7 +217,8 @@ pub fn search(
 
         // All-terms-present boost.
         if query_tokens.len() > 1 {
-            let cap_terms_set: std::collections::HashSet<u32> = cap.terms.iter().map(|t| t.term_id).collect();
+            let cap_terms_set: std::collections::HashSet<u32> =
+                cap.terms.iter().map(|t| t.term_id).collect();
             let all_present = weighted_terms
                 .iter()
                 .filter(|(_, w)| *w >= 1.0) // only original terms, not synonyms
@@ -215,10 +231,8 @@ pub fn search(
 
         if explain {
             term_details[i].sort_by(|a, b| b.weight.partial_cmp(&a.weight).unwrap());
-            // Store explain info via a tagged value (we'll collect later).
-            // For now we store boost_log and bm25_raw in a side vec.
-            // This is a bit clunky but keeps the hot path allocation-free.
-            let _ = (bm25_raw, boost_log); // Used below when building hits.
+            bm25_raws[i] = bm25_raw;
+            boost_details[i] = boost_log;
         }
     }
 
@@ -239,8 +253,8 @@ pub fn search(
             explain: if explain {
                 Some(ExplainTrace {
                     term_hits: term_details[i].clone(),
-                    bm25_raw: score, // simplified: bm25_raw before boosts not tracked separately in this pass
-                    boosts: vec![], // TODO: store per-cap boost log
+                    bm25_raw: bm25_raws[i],
+                    boosts: boost_details[i].clone(),
                     final_score: score,
                 })
             } else {
@@ -256,10 +270,19 @@ mod tests {
     use capfind_core::{Capability, Field, HttpInfo, Kind, Lang, TermRef};
     use std::collections::HashMap;
 
-    fn make_test_index() -> (Vec<Capability>, HashMap<u32, Vec<Posting>>, Vec<String>, f32) {
+    fn make_test_index() -> (
+        Vec<Capability>,
+        HashMap<u32, Vec<Posting>>,
+        Vec<String>,
+        f32,
+    ) {
         // vocab: 0=mdm, 1=query, 2=asset, 3=controller, 4=detail
         let vocab = vec![
-            "mdm".into(), "query".into(), "asset".into(), "controller".into(), "detail".into(),
+            "mdm".into(),
+            "query".into(),
+            "asset".into(),
+            "controller".into(),
+            "detail".into(),
         ];
 
         // Cap 0: POST /mdm/query  — should rank #1 for "mdm query"
@@ -273,7 +296,12 @@ mod tests {
             method: "queryMdm".into(),
             signature: "ApiResult queryMdm(MdmQueryRequest)".into(),
             annotations: vec![],
-            http: Some(HttpInfo { method: "POST".into(), path: "/mdm/query".into(), consumes: None, produces: None }),
+            http: Some(HttpInfo {
+                method: "POST".into(),
+                path: "/mdm/query".into(),
+                consumes: None,
+                produces: None,
+            }),
             rpc: None,
             doc: None,
             tags: vec![],
@@ -281,12 +309,36 @@ mod tests {
             line: 10,
             byte_range: (0, 100),
             terms: vec![
-                TermRef { term_id: 0, field: Field::HttpPath, tf: 1 },
-                TermRef { term_id: 1, field: Field::HttpPath, tf: 1 },
-                TermRef { term_id: 0, field: Field::ClassName, tf: 1 },
-                TermRef { term_id: 3, field: Field::ClassName, tf: 1 },
-                TermRef { term_id: 1, field: Field::MethodName, tf: 1 },
-                TermRef { term_id: 0, field: Field::MethodName, tf: 1 },
+                TermRef {
+                    term_id: 0,
+                    field: Field::HttpPath,
+                    tf: 1,
+                },
+                TermRef {
+                    term_id: 1,
+                    field: Field::HttpPath,
+                    tf: 1,
+                },
+                TermRef {
+                    term_id: 0,
+                    field: Field::ClassName,
+                    tf: 1,
+                },
+                TermRef {
+                    term_id: 3,
+                    field: Field::ClassName,
+                    tf: 1,
+                },
+                TermRef {
+                    term_id: 1,
+                    field: Field::MethodName,
+                    tf: 1,
+                },
+                TermRef {
+                    term_id: 0,
+                    field: Field::MethodName,
+                    tf: 1,
+                },
             ],
         };
 
@@ -301,7 +353,12 @@ mod tests {
             method: "getDetail".into(),
             signature: "ApiResult getDetail(Long id)".into(),
             annotations: vec![],
-            http: Some(HttpInfo { method: "GET".into(), path: "/asset/detail".into(), consumes: None, produces: None }),
+            http: Some(HttpInfo {
+                method: "GET".into(),
+                path: "/asset/detail".into(),
+                consumes: None,
+                produces: None,
+            }),
             rpc: None,
             doc: None,
             tags: vec![],
@@ -309,10 +366,26 @@ mod tests {
             line: 20,
             byte_range: (0, 50),
             terms: vec![
-                TermRef { term_id: 2, field: Field::HttpPath, tf: 1 },
-                TermRef { term_id: 4, field: Field::HttpPath, tf: 1 },
-                TermRef { term_id: 2, field: Field::ClassName, tf: 1 },
-                TermRef { term_id: 3, field: Field::ClassName, tf: 1 },
+                TermRef {
+                    term_id: 2,
+                    field: Field::HttpPath,
+                    tf: 1,
+                },
+                TermRef {
+                    term_id: 4,
+                    field: Field::HttpPath,
+                    tf: 1,
+                },
+                TermRef {
+                    term_id: 2,
+                    field: Field::ClassName,
+                    tf: 1,
+                },
+                TermRef {
+                    term_id: 3,
+                    field: Field::ClassName,
+                    tf: 1,
+                },
             ],
         };
 
@@ -337,7 +410,16 @@ mod tests {
     #[test]
     fn mdm_query_ranks_first() {
         let (caps, postings, vocab, avgdl) = make_test_index();
-        let hits = search("mdm query", &caps, &postings, &vocab, avgdl, &ScorerConfig::default(), 10, false);
+        let hits = search(
+            "mdm query",
+            &caps,
+            &postings,
+            &vocab,
+            avgdl,
+            &ScorerConfig::default(),
+            10,
+            false,
+        );
         assert!(!hits.is_empty());
         assert_eq!(hits[0].cap_id, 0, "MdmController#queryMdm should rank #1");
         assert!(hits[0].score > 0.0);
@@ -347,7 +429,16 @@ mod tests {
     fn synonym_expansion_works() {
         let (caps, postings, vocab, avgdl) = make_test_index();
         // "mdm search" should still find cap0 via synonym search→query.
-        let hits = search("mdm search", &caps, &postings, &vocab, avgdl, &ScorerConfig::default(), 10, false);
+        let hits = search(
+            "mdm search",
+            &caps,
+            &postings,
+            &vocab,
+            avgdl,
+            &ScorerConfig::default(),
+            10,
+            false,
+        );
         assert!(!hits.is_empty());
         assert_eq!(hits[0].cap_id, 0);
     }
@@ -355,7 +446,36 @@ mod tests {
     #[test]
     fn no_results_for_unknown() {
         let (caps, postings, vocab, avgdl) = make_test_index();
-        let hits = search("zzzzunknown", &caps, &postings, &vocab, avgdl, &ScorerConfig::default(), 10, false);
+        let hits = search(
+            "zzzzunknown",
+            &caps,
+            &postings,
+            &vocab,
+            avgdl,
+            &ScorerConfig::default(),
+            10,
+            false,
+        );
         assert!(hits.is_empty());
+    }
+
+    #[test]
+    fn explain_includes_raw_score_and_boosts() {
+        let (caps, postings, vocab, avgdl) = make_test_index();
+        let hits = search(
+            "mdm query",
+            &caps,
+            &postings,
+            &vocab,
+            avgdl,
+            &ScorerConfig::default(),
+            10,
+            true,
+        );
+        let explain = hits[0].explain.as_ref().unwrap();
+        assert!(explain.bm25_raw > 0.0);
+        assert!(explain.final_score >= explain.bm25_raw);
+        assert!(explain.boosts.iter().any(|(name, _)| *name == "layer"));
+        assert!(explain.term_hits.iter().any(|hit| hit.term == "mdm"));
     }
 }

@@ -2,13 +2,14 @@
 
 use std::collections::HashMap;
 use std::path::Path;
-use std::time::SystemTime;
+use std::sync::Arc;
 
 use anyhow::Result;
+use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use rayon::prelude::*;
 
 use capfind_core::{Capability, Field, IndexBody, Posting, TermRef};
-use capfind_search::{tokenize, tokenize_path, FIELD_WEIGHTS};
+use capfind_search::{tokenize, tokenize_path};
 
 /// Build the full index from parsed capabilities.
 ///
@@ -25,11 +26,26 @@ pub fn build_index(mut caps: Vec<Capability>) -> IndexBody {
 
         // Tokenize each field and build term refs.
         let field_tokens: Vec<(Field, Vec<String>)> = vec![
-            (Field::HttpPath, cap.http.as_ref().map(|h| tokenize_path(&h.path)).unwrap_or_default()),
-            (Field::ClassName, cap.class.as_ref().map(|c| tokenize(c)).unwrap_or_default()),
+            (
+                Field::HttpPath,
+                cap.http
+                    .as_ref()
+                    .map(|h| tokenize_path(&h.path))
+                    .unwrap_or_default(),
+            ),
+            (
+                Field::ClassName,
+                cap.class.as_ref().map(|c| tokenize(c)).unwrap_or_default(),
+            ),
             (Field::MethodName, tokenize(&cap.method)),
-            (Field::AnnotationValue, cap.annotations.iter().flat_map(|a| tokenize(a)).collect()),
-            (Field::Doc, cap.doc.as_ref().map(|d| tokenize(d)).unwrap_or_default()),
+            (
+                Field::AnnotationValue,
+                cap.annotations.iter().flat_map(|a| tokenize(a)).collect(),
+            ),
+            (
+                Field::Doc,
+                cap.doc.as_ref().map(|d| tokenize(d)).unwrap_or_default(),
+            ),
             (Field::PackageModule, {
                 let mut t = tokenize(&cap.package);
                 t.extend(tokenize(&cap.module));
@@ -49,7 +65,11 @@ pub fn build_index(mut caps: Vec<Capability>) -> IndexBody {
                     vocab.push(tok.to_string());
                     id
                 });
-                terms.push(TermRef { term_id: tid, field: *field, tf });
+                terms.push(TermRef {
+                    term_id: tid,
+                    field: *field,
+                    tf,
+                });
                 postings.entry(tid).or_default().push(Posting {
                     cap_id: cap.id,
                     field: *field,
@@ -63,7 +83,11 @@ pub fn build_index(mut caps: Vec<Capability>) -> IndexBody {
 
     // Compute avgdl (average document length = avg term refs per cap).
     let total_terms: usize = caps.iter().map(|c| c.terms.len()).sum();
-    let avgdl = if caps.is_empty() { 1.0 } else { total_terms as f32 / caps.len() as f32 };
+    let avgdl = if caps.is_empty() {
+        1.0
+    } else {
+        total_terms as f32 / caps.len() as f32
+    };
 
     IndexBody {
         capabilities: caps,
@@ -78,9 +102,10 @@ pub fn build_index(mut caps: Vec<Capability>) -> IndexBody {
 pub fn scan_and_parse(repo_root: &Path) -> Result<Vec<Capability>> {
     use ignore::WalkBuilder;
 
+    let capfind_ignore = Arc::new(load_capfindignore(repo_root)?);
     let walker = WalkBuilder::new(repo_root)
-        .hidden(true)        // skip hidden dirs
-        .git_ignore(true)    // respect .gitignore
+        .hidden(true) // skip hidden dirs
+        .git_ignore(true) // respect .gitignore
         .git_global(false)
         .git_exclude(true)
         .max_filesize(Some(2 * 1024 * 1024)) // 2MB max
@@ -95,6 +120,7 @@ pub fn scan_and_parse(repo_root: &Path) -> Result<Vec<Capability>> {
         walker.run(|| {
             let tx = tx.clone();
             let root = root.clone();
+            let capfind_ignore = Arc::clone(&capfind_ignore);
             Box::new(move |entry| {
                 let entry = match entry {
                     Ok(e) => e,
@@ -104,6 +130,9 @@ pub fn scan_and_parse(repo_root: &Path) -> Result<Vec<Capability>> {
                     return ignore::WalkState::Continue;
                 }
                 let path = entry.path();
+                if is_capfind_ignored(capfind_ignore.as_ref().as_ref(), path, false) {
+                    return ignore::WalkState::Continue;
+                }
                 let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
                 if !matches!(ext, "java" | "go" | "proto") {
                     return ignore::WalkState::Continue;
@@ -129,7 +158,8 @@ pub fn scan_and_parse(repo_root: &Path) -> Result<Vec<Capability>> {
                     Ok(c) => c,
                     Err(_) => return ignore::WalkState::Continue, // binary or unreadable
                 };
-                let rel = path.strip_prefix(&root)
+                let rel = path
+                    .strip_prefix(&root)
                     .unwrap_or(path)
                     .to_string_lossy()
                     .to_string();
@@ -162,6 +192,25 @@ pub fn scan_and_parse(repo_root: &Path) -> Result<Vec<Capability>> {
         .collect();
 
     Ok(caps)
+}
+
+fn load_capfindignore(repo_root: &Path) -> Result<Option<Gitignore>> {
+    let path = repo_root.join(".capfindignore");
+    if !path.exists() {
+        return Ok(None);
+    }
+
+    let mut builder = GitignoreBuilder::new(repo_root);
+    if let Some(err) = builder.add(&path) {
+        return Err(err.into());
+    }
+    Ok(Some(builder.build()?))
+}
+
+fn is_capfind_ignored(ignore: Option<&Gitignore>, path: &Path, is_dir: bool) -> bool {
+    ignore
+        .map(|ignore| ignore.matched(path, is_dir).is_ignore())
+        .unwrap_or(false)
 }
 
 /// Extract module name from relative path (first meaningful directory).
@@ -197,4 +246,58 @@ fn num_cpus() -> usize {
     std::thread::available_parallelism()
         .map(|n| n.get())
         .unwrap_or(4)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    const CONTROLLER: &str = r#"
+package com.demo;
+
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+public class DemoController {
+    @GetMapping("/demo")
+    public String demo() {
+        return "ok";
+    }
+}
+"#;
+
+    #[test]
+    fn capfindignore_excludes_matching_sources() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        fs::write(root.join(".capfindignore"), "ignored/**\n").unwrap();
+        fs::create_dir_all(root.join("included")).unwrap();
+        fs::create_dir_all(root.join("ignored")).unwrap();
+        fs::write(root.join("included/IncludedController.java"), CONTROLLER).unwrap();
+        fs::write(root.join("ignored/IgnoredController.java"), CONTROLLER).unwrap();
+
+        let caps = scan_and_parse(root).unwrap();
+
+        assert_eq!(caps.len(), 1);
+        assert_eq!(caps[0].file, "included/IncludedController.java");
+    }
+
+    #[test]
+    fn capfindignore_negation_can_reinclude_sources() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        fs::write(
+            root.join(".capfindignore"),
+            "*.java\n!KeepController.java\n",
+        )
+        .unwrap();
+        fs::write(root.join("SkipController.java"), CONTROLLER).unwrap();
+        fs::write(root.join("KeepController.java"), CONTROLLER).unwrap();
+
+        let caps = scan_and_parse(root).unwrap();
+
+        assert_eq!(caps.len(), 1);
+        assert_eq!(caps[0].file, "KeepController.java");
+    }
 }
