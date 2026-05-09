@@ -5,17 +5,9 @@ use std::path::Path;
 use anyhow::{bail, Context, Result};
 use capfind_search::ScorerConfig;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct CapfindConfig {
     pub search: ScorerConfig,
-}
-
-impl Default for CapfindConfig {
-    fn default() -> Self {
-        Self {
-            search: ScorerConfig::default(),
-        }
-    }
 }
 
 pub fn load(repo_root: &Path) -> Result<CapfindConfig> {

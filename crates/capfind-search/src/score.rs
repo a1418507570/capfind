@@ -77,6 +77,7 @@ pub struct TermHit {
 /// * `config` — scorer tuning params
 /// * `limit` — max results to return
 /// * `explain` — if true, fill `Hit::explain`
+#[allow(clippy::too_many_arguments)]
 pub fn search(
     query: &str,
     caps: &[Capability],
@@ -166,10 +167,7 @@ pub fn search(
             scores[posting.cap_id as usize] += idf * tf_norm;
 
             if explain {
-                let term_str = vocab
-                    .get(tid as usize)
-                    .map(|s| s.clone())
-                    .unwrap_or_default();
+                let term_str = vocab.get(tid as usize).cloned().unwrap_or_default();
                 term_details[posting.cap_id as usize].push(TermHit {
                     term: term_str,
                     field: posting.field,

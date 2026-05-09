@@ -37,4 +37,4 @@
 
 ## 当前重点
 
-短期优先级是收敛 v0.1：Java 行号、路径解析、过滤语义、`explain`、`.capfindignore`、`.capfind/config.toml` 搜索参数、CLI 主流程集成测试已进入第一轮实现；下一步继续补齐 CI 和发布脚本。
+短期优先级是收敛 v0.1：Java 行号、路径解析、过滤语义、`explain`、`.capfindignore`、`.capfind/config.toml` 搜索参数、CLI 主流程集成测试、GitHub Actions CI 已进入第一轮实现；下一步继续补齐发布脚本。

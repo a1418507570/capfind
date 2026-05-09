@@ -221,10 +221,8 @@ fn balance_braces(bytes: &[u8], start: usize) -> Option<usize> {
     while i < bytes.len() {
         let b = bytes[i];
         match b {
-            b'"' if !in_char => {
-                if i == 0 || bytes[i - 1] != b'\\' {
-                    in_string = !in_string;
-                }
+            b'"' if !in_char && (i == 0 || bytes[i - 1] != b'\\') => {
+                in_string = !in_string;
             }
             b'\'' if !in_string => {
                 in_char = !in_char;
