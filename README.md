@@ -1,6 +1,7 @@
 # capfind
 
 [![CI](https://github.com/a1418507570/capfind/actions/workflows/ci.yml/badge.svg)](https://github.com/a1418507570/capfind/actions/workflows/ci.yml)
+[![Release](https://github.com/a1418507570/capfind/actions/workflows/release.yml/badge.svg)](https://github.com/a1418507570/capfind/actions/workflows/release.yml)
 
 > 在大型多语言仓库里先找到已有能力，再决定是否新增实现。  
 > Find reusable capabilities in big polyglot repos — before you build a new one.
@@ -48,6 +49,7 @@ v0.1 currently focuses on Java Spring repositories:
 - CLI 端到端集成测试覆盖 `init/index/find/show/stats/explain` 主流程。
 - GitHub Actions CI 自动执行 `cargo fmt`、`cargo clippy`、`cargo test`。
 - `cargo xtask dist` 生成本机 release 包和 SHA-256 校验文件。
+- GitHub Release 工作流在 `v*` tag 上自动构建 Linux/macOS 包并发布 Release。
 
 Go / Proto / RPC 支持计划放在 v0.2。
 
@@ -142,6 +144,15 @@ cargo xtask dist
 ls target/dist/
 ```
 
+多平台发布由 GitHub Actions Release 工作流负责。推送 `v*` tag 会自动构建 Linux/macOS 包，上传 workflow artifacts，并创建 GitHub Release：
+
+Multi-platform release is handled by the GitHub Actions Release workflow. Pushing a `v*` tag builds Linux/macOS packages, uploads workflow artifacts, and creates a GitHub Release:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
 ## 常用命令 / Common commands
 
 ```bash
@@ -157,7 +168,7 @@ capfind diagnose src/main/java/com/demo/MdmController.java
 
 ## 路线图 / Roadmap
 
-- **v0.1**：Java parser、准确引用、BM25 搜索、`[search]` 配置、Explain、`.capfindignore`、CLI 集成测试、CI、发布打包、基础体验。
+- **v0.1**：Java parser、准确引用、BM25 搜索、`[search]` 配置、Explain、`.capfindignore`、CLI 集成测试、CI、多平台 Release、基础体验。
 - **v0.2**：Go / Proto parser、增量索引、完整配置 schema、性能优化。
 - **v0.3**：MCP Server、稳定 JSON schema、AI Agent / PR Review 集成。
 
@@ -165,9 +176,9 @@ See [ROADMAP](./docs/ROADMAP.md) for the detailed plan.
 
 ## 状态 / Status
 
-v0.1 正在开发中。当前主链路已经打通：Java capability → index → search → citation。搜索评分配置、`.capfindignore`、CLI 主流程集成测试、GitHub Actions CI 和基础发布打包脚本已生效；下一步会继续补齐多平台 release 自动化。
+v0.1 正在开发中。当前主链路已经打通：Java capability → index → search → citation。搜索评分配置、`.capfindignore`、CLI 主流程集成测试、GitHub Actions CI、基础发布打包脚本和多平台 Release 工作流已生效；下一步会继续补齐安装脚本与首个版本发布。
 
-v0.1 is in progress. The main loop is already working: Java capability → index → search → citation. Search scoring config, `.capfindignore`, CLI end-to-end tests, GitHub Actions CI, and basic release packaging are active; next steps include multi-platform release automation.
+v0.1 is in progress. The main loop is already working: Java capability → index → search → citation. Search scoring config, `.capfindignore`, CLI end-to-end tests, GitHub Actions CI, basic release packaging, and multi-platform Release workflow are active; next steps include install script and the first versioned release.
 
 ## 许可证 / License
 
