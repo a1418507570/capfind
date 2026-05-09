@@ -50,6 +50,7 @@ v0.1 currently focuses on Java Spring repositories:
 - GitHub Actions CI 自动执行 `cargo fmt`、`cargo clippy`、`cargo test`。
 - `cargo xtask dist` 生成本机 release 包和 SHA-256 校验文件。
 - GitHub Release 工作流在 `v*` tag 上自动构建 Linux/macOS 包并发布 Release。
+- `scripts/install.sh` 可从 GitHub Release 下载、校验并安装 `capfind`。
 
 Go / Proto / RPC 支持计划放在 v0.2。
 
@@ -62,13 +63,19 @@ Go / Proto / RPC support is planned for v0.2.
 
 ```bash
 # 一键安装 / one-line install (Linux/macOS)
-curl -fsSL https://capfind.sh | sh
+curl -fsSL https://raw.githubusercontent.com/a1418507570/capfind/main/scripts/install.sh | sh
 
-# Homebrew
+# 安装指定版本 / install a specific version
+CAPFIND_VERSION=v0.1.0 sh -c "$(curl -fsSL https://raw.githubusercontent.com/a1418507570/capfind/main/scripts/install.sh)"
+
+# 自定义安装目录 / custom install directory
+CAPFIND_INSTALL_DIR="$HOME/bin" sh -c "$(curl -fsSL https://raw.githubusercontent.com/a1418507570/capfind/main/scripts/install.sh)"
+
+# Homebrew（计划中 / planned）
 brew install capfind-ai/capfind/capfind
 
 # 从源码安装 / from source
-cargo install --git https://github.com/capfind-ai/capfind capfind-cli
+cargo install --git https://github.com/a1418507570/capfind capfind-cli
 ```
 
 ## 快速开始 / Quickstart
@@ -131,6 +138,7 @@ cargo fmt --all --check
 cargo clippy --workspace --all-targets
 cargo test --workspace
 cargo xtask dist
+sh -n scripts/install.sh
 ```
 
 ## 发布打包 / Release packaging
@@ -168,7 +176,7 @@ capfind diagnose src/main/java/com/demo/MdmController.java
 
 ## 路线图 / Roadmap
 
-- **v0.1**：Java parser、准确引用、BM25 搜索、`[search]` 配置、Explain、`.capfindignore`、CLI 集成测试、CI、多平台 Release、基础体验。
+- **v0.1**：Java parser、准确引用、BM25 搜索、`[search]` 配置、Explain、`.capfindignore`、CLI 集成测试、CI、多平台 Release、安装脚本、基础体验。
 - **v0.2**：Go / Proto parser、增量索引、完整配置 schema、性能优化。
 - **v0.3**：MCP Server、稳定 JSON schema、AI Agent / PR Review 集成。
 
@@ -176,9 +184,9 @@ See [ROADMAP](./docs/ROADMAP.md) for the detailed plan.
 
 ## 状态 / Status
 
-v0.1 正在开发中。当前主链路已经打通：Java capability → index → search → citation。搜索评分配置、`.capfindignore`、CLI 主流程集成测试、GitHub Actions CI、基础发布打包脚本和多平台 Release 工作流已生效；下一步会继续补齐安装脚本与首个版本发布。
+v0.1 正在开发中。当前主链路已经打通：Java capability → index → search → citation。搜索评分配置、`.capfindignore`、CLI 主流程集成测试、GitHub Actions CI、基础发布打包脚本、多平台 Release 工作流和安装脚本已生效；下一步会继续准备首个版本发布。
 
-v0.1 is in progress. The main loop is already working: Java capability → index → search → citation. Search scoring config, `.capfindignore`, CLI end-to-end tests, GitHub Actions CI, basic release packaging, and multi-platform Release workflow are active; next steps include install script and the first versioned release.
+v0.1 is in progress. The main loop is already working: Java capability → index → search → citation. Search scoring config, `.capfindignore`, CLI end-to-end tests, GitHub Actions CI, basic release packaging, multi-platform Release workflow, and install script are active; next step is preparing the first versioned release.
 
 ## 许可证 / License
 

@@ -41,3 +41,6 @@ jobs:
 
       - name: Check release package
         run: cargo xtask dist
+
+      - name: Check install script syntax
+        run: sh -n scripts/install.sh
