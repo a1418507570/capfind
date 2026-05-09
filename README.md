@@ -43,6 +43,7 @@ v0.1 currently focuses on Java Spring repositories:
 - `find --lang/--kind/--path` 过滤。
 - `find --explain` / `explain` 评分解释。
 - `.gitignore` + `.capfindignore` 忽略规则。
+- CLI 端到端集成测试覆盖 `init/index/find/show/stats/explain` 主流程。
 
 Go / Proto / RPC 支持计划放在 v0.2。
 
@@ -128,7 +129,7 @@ capfind diagnose src/main/java/com/demo/MdmController.java
 
 ## 路线图 / Roadmap
 
-- **v0.1**：Java parser、准确引用、BM25 搜索、`[search]` 配置、Explain、`.capfindignore`、CLI 基础体验。
+- **v0.1**：Java parser、准确引用、BM25 搜索、`[search]` 配置、Explain、`.capfindignore`、CLI 集成测试、基础体验。
 - **v0.2**：Go / Proto parser、增量索引、完整配置 schema、性能优化。
 - **v0.3**：MCP Server、稳定 JSON schema、AI Agent / PR Review 集成。
 
@@ -136,9 +137,9 @@ See [ROADMAP](./docs/ROADMAP.md) for the detailed plan.
 
 ## 状态 / Status
 
-v0.1 正在开发中。当前主链路已经打通：Java capability → index → search → citation。搜索评分配置和 `.capfindignore` 已生效；下一步会继续补齐 CLI 集成测试、CI 和发布脚本。
+v0.1 正在开发中。当前主链路已经打通：Java capability → index → search → citation。搜索评分配置、`.capfindignore` 和 CLI 主流程集成测试已生效；下一步会继续补齐 CI 和发布脚本。
 
-v0.1 is in progress. The main loop is already working: Java capability → index → search → citation. Search scoring config and `.capfindignore` are active; next steps include CLI integration tests, CI, and release tooling.
+v0.1 is in progress. The main loop is already working: Java capability → index → search → citation. Search scoring config, `.capfindignore`, and CLI end-to-end tests are active; next steps include CI and release tooling.
 
 ## 许可证 / License
 
