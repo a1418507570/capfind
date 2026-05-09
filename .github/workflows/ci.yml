@@ -38,3 +38,6 @@ jobs:
 
       - name: Run tests
         run: cargo test --workspace
+
+      - name: Check release package
+        run: cargo xtask dist
