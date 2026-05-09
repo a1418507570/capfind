@@ -98,10 +98,9 @@ fn is_stopword(s: &str) -> bool {
 }
 
 const STOPWORDS: &[&str] = &[
-    "get", "do", "impl", "util", "base", "common", "helper", "handler", "handle",
-    "new", "old", "default", "abstract", "internal", "java", "go", "proto",
-    "foo", "bar", "baz", "tmp", "temp", "the", "for", "and", "with", "from",
-    "this", "that", "void", "null", "true", "false",
+    "get", "do", "impl", "util", "base", "common", "helper", "handler", "handle", "new", "old",
+    "default", "abstract", "internal", "java", "go", "proto", "foo", "bar", "baz", "tmp", "temp",
+    "the", "for", "and", "with", "from", "this", "that", "void", "null", "true", "false",
 ];
 
 #[cfg(test)]
@@ -112,7 +111,10 @@ mod tests {
     fn basic_camel_split() {
         assert_eq!(split_camel("queryAsset"), vec!["query", "Asset"]);
         assert_eq!(split_camel("XMLParser"), vec!["XML", "Parser"]);
-        assert_eq!(split_camel("getHTTPResponse"), vec!["get", "HTTP", "Response"]);
+        assert_eq!(
+            split_camel("getHTTPResponse"),
+            vec!["get", "HTTP", "Response"]
+        );
         assert_eq!(split_camel("simple"), vec!["simple"]);
         assert_eq!(split_camel("v2List"), vec!["v2", "List"]);
     }

@@ -88,7 +88,12 @@ pub struct IndexHeader {
 ///
 /// Atomic write matters because `capfind index` can be Ctrl-C'd mid-build;
 /// we don't want to leave a half-written `.cfi` that fails to load next time.
-pub fn write_index(path: &Path, body: &IndexBody, created_unix: i64, repo_fp: [u8; 32]) -> Result<()> {
+pub fn write_index(
+    path: &Path,
+    body: &IndexBody,
+    created_unix: i64,
+    repo_fp: [u8; 32],
+) -> Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -232,10 +237,21 @@ mod tests {
             file: "biz/src/main/java/com/demo/MdmController.java".into(),
             line: 42,
             byte_range: (100, 200),
-            terms: vec![TermRef { term_id: 0, field: Field::MethodName, tf: 1 }],
+            terms: vec![TermRef {
+                term_id: 0,
+                field: Field::MethodName,
+                tf: 1,
+            }],
         };
         let mut postings = HashMap::new();
-        postings.insert(0, vec![Posting { cap_id: 0, field: Field::MethodName, tf: 1 }]);
+        postings.insert(
+            0,
+            vec![Posting {
+                cap_id: 0,
+                field: Field::MethodName,
+                tf: 1,
+            }],
+        );
         IndexBody {
             capabilities: vec![cap],
             vocab: vec!["mdm".into()],

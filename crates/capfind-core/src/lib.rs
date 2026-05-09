@@ -16,5 +16,8 @@ pub mod index;
 pub mod model;
 
 pub use error::{IndexError, Result};
-pub use index::{load_index, read_header, write_index, IndexBody, IndexHeader, Posting, HEADER_LEN, INDEX_VERSION, MAGIC};
+pub use index::{
+    load_index, read_header, write_index, IndexBody, IndexHeader, Posting, HEADER_LEN,
+    INDEX_VERSION, MAGIC,
+};
 pub use model::{Capability, Field, FileStat, HttpInfo, Kind, Lang, RpcInfo, TermRef};

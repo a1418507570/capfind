@@ -4,31 +4,31 @@
 //! `.capfind/config.toml`. Synonyms are only applied query-side (not during
 //! indexing) to avoid postings bloat.
 
-use std::collections::HashMap;
 use once_cell::sync::Lazy;
+use std::collections::HashMap;
 
 /// The default synonym table.
 static DEFAULT_SYNONYMS: Lazy<HashMap<&'static str, &'static [&'static str]>> = Lazy::new(|| {
     let mut m = HashMap::default();
-    m.insert("query",   &["search", "find", "list", "fetch", "lookup"][..]);
-    m.insert("search",  &["query", "find", "list", "fetch", "lookup"][..]);
-    m.insert("find",    &["query", "search", "list", "fetch", "lookup"][..]);
-    m.insert("list",    &["query", "search", "find", "fetch", "lookup"][..]);
-    m.insert("fetch",   &["query", "search", "find", "list", "lookup"][..]);
-    m.insert("lookup",  &["query", "search", "find", "list", "fetch"][..]);
-    m.insert("create",  &["add", "insert", "register", "save"][..]);
-    m.insert("add",     &["create", "insert", "register", "save"][..]);
-    m.insert("insert",  &["create", "add", "register", "save"][..]);
-    m.insert("register",&["create", "add", "insert", "save"][..]);
-    m.insert("save",    &["create", "add", "insert", "register"][..]);
-    m.insert("update",  &["modify", "edit", "change"][..]);
-    m.insert("modify",  &["update", "edit", "change"][..]);
-    m.insert("edit",    &["update", "modify", "change"][..]);
-    m.insert("change",  &["update", "modify", "edit"][..]);
-    m.insert("delete",  &["remove", "erase", "del"][..]);
-    m.insert("remove",  &["delete", "erase", "del"][..]);
-    m.insert("batch",   &["bulk", "many"][..]);
-    m.insert("bulk",    &["batch", "many"][..]);
+    m.insert("query", &["search", "find", "list", "fetch", "lookup"][..]);
+    m.insert("search", &["query", "find", "list", "fetch", "lookup"][..]);
+    m.insert("find", &["query", "search", "list", "fetch", "lookup"][..]);
+    m.insert("list", &["query", "search", "find", "fetch", "lookup"][..]);
+    m.insert("fetch", &["query", "search", "find", "list", "lookup"][..]);
+    m.insert("lookup", &["query", "search", "find", "list", "fetch"][..]);
+    m.insert("create", &["add", "insert", "register", "save"][..]);
+    m.insert("add", &["create", "insert", "register", "save"][..]);
+    m.insert("insert", &["create", "add", "register", "save"][..]);
+    m.insert("register", &["create", "add", "insert", "save"][..]);
+    m.insert("save", &["create", "add", "insert", "register"][..]);
+    m.insert("update", &["modify", "edit", "change"][..]);
+    m.insert("modify", &["update", "edit", "change"][..]);
+    m.insert("edit", &["update", "modify", "change"][..]);
+    m.insert("change", &["update", "modify", "edit"][..]);
+    m.insert("delete", &["remove", "erase", "del"][..]);
+    m.insert("remove", &["delete", "erase", "del"][..]);
+    m.insert("batch", &["bulk", "many"][..]);
+    m.insert("bulk", &["batch", "many"][..]);
     m
 });
 
