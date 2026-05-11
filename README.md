@@ -72,7 +72,7 @@ CAPFIND_VERSION=v0.1.0 sh -c "$(curl -fsSL https://raw.githubusercontent.com/a14
 CAPFIND_INSTALL_DIR="$HOME/bin" sh -c "$(curl -fsSL https://raw.githubusercontent.com/a1418507570/capfind/main/scripts/install.sh)"
 
 # Homebrew（计划中 / planned）
-brew install capfind-ai/capfind/capfind
+brew install a1418507570/capfind/capfind
 
 # 从源码安装 / from source
 cargo install --git https://github.com/a1418507570/capfind capfind-cli
@@ -184,10 +184,21 @@ See [ROADMAP](./docs/ROADMAP.md) for the detailed plan.
 
 ## 状态 / Status
 
-v0.1 正在开发中。当前主链路已经打通：Java capability → index → search → citation。搜索评分配置、`.capfindignore`、CLI 主流程集成测试、GitHub Actions CI、基础发布打包脚本、多平台 Release 工作流和安装脚本已生效；下一步会继续准备首个版本发布。
+v0.1.0 已发布。当前主链路已经打通：Java capability → index → search → citation。搜索评分配置、`.capfindignore`、CLI 主流程集成测试、GitHub Actions CI、基础发布打包脚本、多平台 Release 工作流、安装脚本和双许可证文件已生效；下一步会进入 v0.1.x 修复与 v0.2 Go/Proto parser 准备。
 
-v0.1 is in progress. The main loop is already working: Java capability → index → search → citation. Search scoring config, `.capfindignore`, CLI end-to-end tests, GitHub Actions CI, basic release packaging, multi-platform Release workflow, and install script are active; next step is preparing the first versioned release.
+v0.1.0 has been released. The main loop is working: Java capability → index → search → citation. Search scoring config, `.capfindignore`, CLI end-to-end tests, GitHub Actions CI, basic release packaging, multi-platform Release workflow, install script, and dual-license files are active; next steps are v0.1.x fixes and v0.2 Go/Proto parser preparation.
 
 ## 许可证 / License
 
+本项目采用双许可证，用户可任选其一：
+
+This project is dual-licensed. You may choose either license:
+
+- [MIT](./LICENSE-MIT)
+- [Apache-2.0](./LICENSE-APACHE)
+
+SPDX 表达式 / SPDX expression:
+
+```text
 MIT OR Apache-2.0
+```

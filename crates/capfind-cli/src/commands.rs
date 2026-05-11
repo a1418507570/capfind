@@ -288,7 +288,7 @@ pub fn diagnose(file: &Path) -> Result<()> {
 }
 
 const DEFAULT_CONFIG: &str = r#"# capfind configuration
-# See https://github.com/capfind-ai/capfind for docs.
+# See https://github.com/a1418507570/capfind for docs.
 
 version = 1
 

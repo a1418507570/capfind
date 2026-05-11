@@ -4,6 +4,8 @@
 
 ## v0.1 — Java 可发布版本
 
+状态：v0.1.0 已发布。
+
 目标：稳定打通 Java Spring 仓库的 `index -> find -> cite` 主链路。
 
 - Java Spring endpoint / service / repository 解析
@@ -37,4 +39,4 @@
 
 ## 当前重点
 
-短期优先级是收敛 v0.1：Java 行号、路径解析、过滤语义、`explain`、`.capfindignore`、`.capfind/config.toml` 搜索参数、CLI 主流程集成测试、GitHub Actions CI、基础发布打包脚本、多平台 Release 工作流、安装脚本已进入第一轮实现；下一步继续准备首个版本发布。
+短期优先级是收敛 v0.1：Java 行号、路径解析、过滤语义、`explain`、`.capfindignore`、`.capfind/config.toml` 搜索参数、CLI 主流程集成测试、GitHub Actions CI、基础发布打包脚本、多平台 Release 工作流、安装脚本、双许可证文件已进入第一轮实现；下一步进入 v0.1.x 修复与 v0.2 Go/Proto parser 准备。

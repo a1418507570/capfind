@@ -14,10 +14,10 @@ exclude = ["crates/capfind-mcp"]
 version      = "0.1.0"
 edition      = "2021"
 rust-version = "1.80"
-authors      = ["capfind-ai <capfind@example.com>"]
+authors      = ["capfind contributors"]
 license      = "MIT OR Apache-2.0"
-repository   = "https://github.com/capfind-ai/capfind"
-homepage     = "https://github.com/capfind-ai/capfind"
+repository   = "https://github.com/a1418507570/capfind"
+homepage     = "https://github.com/a1418507570/capfind"
 description  = "Find reusable capabilities in big polyglot repos — zero-LLM, deterministic, AI-agent friendly."
 
 [workspace.dependencies]
