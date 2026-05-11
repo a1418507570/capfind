@@ -20,6 +20,14 @@ public class MdmController {
 }
 "#;
 
+const GO_ROUTES: &str = r#"
+package api
+
+func register(router *gin.Engine) {
+    router.GET("/go/mdm/query", queryMdm)
+}
+"#;
+
 fn capfind() -> Command {
     Command::cargo_bin("capfind").unwrap()
 }
@@ -29,6 +37,9 @@ fn fixture_repo() -> TempDir {
     let src_dir = dir.path().join("src/main/java/com/demo");
     fs::create_dir_all(&src_dir).unwrap();
     fs::write(src_dir.join("MdmController.java"), CONTROLLER).unwrap();
+    let go_dir = dir.path().join("server/api");
+    fs::create_dir_all(&go_dir).unwrap();
+    fs::write(go_dir.join("routes.go"), GO_ROUTES).unwrap();
     dir
 }
 
@@ -81,6 +92,21 @@ fn index_find_show_stats_work_end_to_end() {
         .as_str()
         .unwrap()
         .ends_with("MdmController.java"));
+
+    let go_find = capfind()
+        .current_dir(dir.path())
+        .args(["find", "go", "mdm", "query", "--lang", "go", "--json"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let go_json: Value = serde_json::from_slice(&go_find).unwrap();
+    let go_first = &go_json["results"][0];
+    assert_eq!(go_first["lang"], "Go");
+    assert_eq!(go_first["http"]["method"], "GET");
+    assert_eq!(go_first["http"]["path"], "/go/mdm/query");
+    assert!(go_first["file"].as_str().unwrap().ends_with("routes.go"));
 
     let id = first["id"].as_u64().unwrap().to_string();
     capfind()

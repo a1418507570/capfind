@@ -6,9 +6,9 @@
 > 在大型多语言仓库里先找到已有能力，再决定是否新增实现。  
 > Find reusable capabilities in big polyglot repos — before you build a new one.
 
-`capfind` 是一个零 LLM、确定性的代码能力检索工具。它会扫描多模块 Java 代码库，建立一个小型索引，记录仓库里已经存在的能力：HTTP Endpoint、Service 方法、DAO 方法等。你或 AI 编码助手可以直接查询类似“有没有已经查询 MDM 的接口？”这样的问题，并在毫秒级拿到带 `file:line` 引用的结果。
+`capfind` 是一个零 LLM、确定性的代码能力检索工具。它会扫描多模块 Java / Go 代码库，建立一个小型索引，记录仓库里已经存在的能力：HTTP Endpoint、Service 方法、DAO 方法等。你或 AI 编码助手可以直接查询类似“有没有已经查询 MDM 的接口？”这样的问题，并在毫秒级拿到带 `file:line` 引用的结果。
 
-`capfind` is a zero-LLM, deterministic capability finder. It scans a multi-module Java codebase and builds a compact index of existing capabilities such as HTTP endpoints, service methods, and DAO methods. You — or an AI coding agent — can ask questions like “is there already an endpoint that queries MDM?” and get millisecond results with `file:line` citations.
+`capfind` is a zero-LLM, deterministic capability finder. It scans a multi-module Java / Go codebase and builds a compact index of existing capabilities such as HTTP endpoints, service methods, and DAO methods. You — or an AI coding agent — can ask questions like “is there already an endpoint that queries MDM?” and get millisecond results with `file:line` citations.
 
 ```bash
 $ capfind find mdm query
@@ -34,12 +34,13 @@ Large backend repositories already contain many reusable capabilities, but devel
 
 ## 当前能力 / Current capabilities
 
-v0.1 当前聚焦 Java Spring 仓库：
+当前稳定能力聚焦 Java Spring 仓库，`main` 分支已开始引入 v0.2 的 Go HTTP route parser 第一版：
 
-v0.1 currently focuses on Java Spring repositories:
+The stable path focuses on Java Spring repositories, and `main` has started the first v0.2 slice: Go HTTP route parsing.
 
 - Java Spring `@RestController` / `@Controller` HTTP Endpoint 解析。
 - Java `@Service` / `@Repository` / `@Component` 方法解析。
+- Go `router.GET/POST/...`、`http.HandleFunc`、`mux.HandleFunc(...).Methods(...)` HTTP route 解析。
 - 准确的 `file:line` 引用。
 - BM25 + 字段权重 + 层级 boost 搜索。
 - `.capfind/config.toml` 中 `[search] k1/b` 评分参数生效。
@@ -52,9 +53,9 @@ v0.1 currently focuses on Java Spring repositories:
 - GitHub Release 工作流在 `v*` tag 上自动构建 Linux/macOS 包并发布 Release。
 - `scripts/install.sh` 可从 GitHub Release 下载、校验并安装 `capfind`。
 
-Go / Proto / RPC 支持计划放在 v0.2。
+Go parser 仍处于 v0.2 早期切片；Proto / RPC 支持计划放在后续 v0.2 迭代。
 
-Go / Proto / RPC support is planned for v0.2.
+The Go parser is still an early v0.2 slice; Proto / RPC support is planned for later v0.2 iterations.
 
 ## 安装 / Install
 
@@ -177,16 +178,16 @@ capfind diagnose src/main/java/com/demo/MdmController.java
 ## 路线图 / Roadmap
 
 - **v0.1**：Java parser、准确引用、BM25 搜索、`[search]` 配置、Explain、`.capfindignore`、CLI 集成测试、CI、多平台 Release、安装脚本、基础体验。
-- **v0.2**：Go / Proto parser、增量索引、完整配置 schema、性能优化。
+- **v0.2**：Go HTTP route parser、Proto parser、增量索引、完整配置 schema、性能优化。
 - **v0.3**：MCP Server、稳定 JSON schema、AI Agent / PR Review 集成。
 
 See [ROADMAP](./docs/ROADMAP.md) for the detailed plan.
 
 ## 状态 / Status
 
-v0.1.0 已发布。当前主链路已经打通：Java capability → index → search → citation。搜索评分配置、`.capfindignore`、CLI 主流程集成测试、GitHub Actions CI、基础发布打包脚本、多平台 Release 工作流、安装脚本和双许可证文件已生效；下一步会进入 v0.1.x 修复与 v0.2 Go/Proto parser 准备。
+v0.1.0 已发布。当前主链路已经打通：Java capability → index → search → citation。`main` 分支正在推进 v0.2：Go HTTP route parser 第一版已进入实现；下一步会继续扩展 Go 框架覆盖与 Proto/RPC parser。
 
-v0.1.0 has been released. The main loop is working: Java capability → index → search → citation. Search scoring config, `.capfindignore`, CLI end-to-end tests, GitHub Actions CI, basic release packaging, multi-platform Release workflow, install script, and dual-license files are active; next steps are v0.1.x fixes and v0.2 Go/Proto parser preparation.
+v0.1.0 has been released. The main loop is working: Java capability → index → search → citation. The `main` branch is now moving toward v0.2: the first Go HTTP route parser slice is implemented; next steps are broader Go framework coverage and Proto/RPC parsing.
 
 ## 许可证 / License
 

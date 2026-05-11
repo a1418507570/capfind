@@ -19,9 +19,12 @@
 
 ## v0.2 — Polyglot 能力扩展
 
+状态：Go HTTP route parser 第一版已进入 `main`。
+
 目标：覆盖大型混合语言后端仓库的主要能力入口。
 
 - Go parser：Gin / Echo / Hertz / net/http route，service/interface 方法
+  - 第一版已覆盖 `router.GET/POST/...`、`http.HandleFunc`、`mux.HandleFunc(...).Methods(...)`
 - Proto parser：service / rpc，HTTP annotation 映射
 - 增量索引：`file_stats`、`repo_fp`、`--rehash`
 - 更完整的 config schema：include/exclude、search 参数、自定义 synonyms
@@ -39,4 +42,4 @@
 
 ## 当前重点
 
-短期优先级是收敛 v0.1：Java 行号、路径解析、过滤语义、`explain`、`.capfindignore`、`.capfind/config.toml` 搜索参数、CLI 主流程集成测试、GitHub Actions CI、基础发布打包脚本、多平台 Release 工作流、安装脚本、双许可证文件已进入第一轮实现；下一步进入 v0.1.x 修复与 v0.2 Go/Proto parser 准备。
+短期优先级已从 v0.1 收敛转向 v0.2：Go HTTP route parser 第一版已进入实现；下一步继续扩展 Go 框架覆盖、补充真实 Go fixture，并启动 Proto/RPC parser。
