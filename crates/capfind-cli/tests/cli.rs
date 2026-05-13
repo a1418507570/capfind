@@ -108,6 +108,22 @@ fn index_find_show_stats_work_end_to_end() {
     assert_eq!(go_first["http"]["path"], "/go/mdm/query");
     assert!(go_first["file"].as_str().unwrap().ends_with("routes.go"));
 
+    let agent = capfind()
+        .current_dir(dir.path())
+        .args(["agent", "add", "mdm", "query", "endpoint", "--json"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let agent_json: Value = serde_json::from_slice(&agent).unwrap();
+    assert_eq!(agent_json["has_candidates"], true);
+    assert_eq!(
+        agent_json["recommendation"],
+        "review_existing_capability_before_implementing"
+    );
+    assert!(!agent_json["candidates"].as_array().unwrap().is_empty());
+
     let id = first["id"].as_u64().unwrap().to_string();
     capfind()
         .current_dir(dir.path())

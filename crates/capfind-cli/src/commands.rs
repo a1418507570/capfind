@@ -11,7 +11,7 @@ use capfind_search::search;
 use crate::config;
 use crate::fmt as output;
 use crate::indexer;
-use crate::FindArgs;
+use crate::{AgentArgs, FindArgs};
 
 /// `capfind init` — create .capfind/ directory with config.
 pub fn init(repo_root: &Path) -> Result<()> {
@@ -177,6 +177,79 @@ pub fn find(repo_root: &Path, args: &FindArgs, no_color: bool) -> Result<()> {
         );
     }
 
+    Ok(())
+}
+
+/// `capfind agent` — JSON preflight check for AI coding agents.
+pub fn agent(repo_root: &Path, args: &AgentArgs) -> Result<()> {
+    let index_path = repo_root.join(".capfind/index.cfi");
+    if !index_path.exists() {
+        bail!("No index found. Run `capfind index` first.");
+    }
+
+    let start = Instant::now();
+    let (_header, body) = load_index(&index_path).context("Failed to load index")?;
+
+    let query = args.task.join(" ");
+    if query.is_empty() {
+        bail!("Please provide a task, e.g.: capfind agent add mdm query endpoint");
+    }
+
+    let cfg = config::load(repo_root)?;
+    let has_filters = args.lang.is_some() || args.kind.is_some() || args.path.is_some();
+    let search_limit = if has_filters {
+        body.capabilities.len().max(args.limit)
+    } else {
+        args.limit
+    };
+
+    let hits = search(
+        &query,
+        &body.capabilities,
+        &body.postings,
+        &body.vocab,
+        body.avgdl,
+        &cfg.search,
+        search_limit,
+        false,
+    );
+
+    let mut filtered: Vec<_> = hits
+        .iter()
+        .filter(|h| {
+            let cap = &body.capabilities[h.cap_id as usize];
+            if let Some(ref lf) = args.lang {
+                let lang_ok = match lf {
+                    crate::LangFilter::Java => cap.lang == Lang::Java,
+                    crate::LangFilter::Go => cap.lang == Lang::Go,
+                    crate::LangFilter::Proto => cap.lang == Lang::Proto,
+                };
+                if !lang_ok {
+                    return false;
+                }
+            }
+            if let Some(ref kf) = args.kind {
+                let kind_ok = match kf {
+                    crate::KindFilter::Endpoint => cap.kind == Kind::HttpEndpoint,
+                    crate::KindFilter::Rpc => cap.kind == Kind::RpcMethod,
+                    crate::KindFilter::Service => cap.kind == Kind::ServiceMethod,
+                    crate::KindFilter::Dao => cap.kind == Kind::DaoMethod,
+                };
+                if !kind_ok {
+                    return false;
+                }
+            }
+            if let Some(ref prefix) = args.path {
+                if !cap.file.starts_with(prefix.as_str()) {
+                    return false;
+                }
+            }
+            true
+        })
+        .collect();
+    filtered.truncate(args.limit);
+
+    output::print_agent_json(&query, &filtered, &body.capabilities, start.elapsed())?;
     Ok(())
 }
 

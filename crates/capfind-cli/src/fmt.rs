@@ -137,6 +137,69 @@ pub fn print_json(
     Ok(())
 }
 
+/// Print agent-friendly JSON preflight output.
+pub fn print_agent_json(
+    task: &str,
+    hits: &[&Hit],
+    caps: &[Capability],
+    elapsed: Duration,
+) -> anyhow::Result<()> {
+    use serde_json::json;
+
+    let candidates: Vec<_> = hits
+        .iter()
+        .map(|h| {
+            let cap = &caps[h.cap_id as usize];
+            let mut obj = json!({
+                "id": cap.id,
+                "score": (h.score * 10.0).round() / 10.0,
+                "kind": cap.kind.as_str(),
+                "lang": cap.lang.as_str(),
+                "class": cap.class,
+                "method": cap.method,
+                "signature": cap.signature,
+                "file": cap.file,
+                "line": cap.line,
+            });
+            if let Some(ref http) = cap.http {
+                obj["http"] = json!({
+                    "method": http.method,
+                    "path": http.path,
+                });
+            }
+            if let Some(ref rpc) = cap.rpc {
+                obj["rpc"] = json!({
+                    "service": rpc.service,
+                    "rpc": rpc.rpc,
+                });
+            }
+            obj
+        })
+        .collect();
+
+    let recommendation = if candidates.is_empty() {
+        "no_similar_capability_found"
+    } else {
+        "review_existing_capability_before_implementing"
+    };
+
+    let output = json!({
+        "task": task,
+        "took_ms": elapsed.as_millis(),
+        "has_candidates": !candidates.is_empty(),
+        "recommendation": recommendation,
+        "agent_hint": if candidates.is_empty() {
+            "No indexed capability matched this task. It may be safe to implement, but verify domain context first."
+        } else {
+            "Review the candidates and cited file:line locations before creating new code. Prefer reuse or extension when appropriate."
+        },
+        "candidates": candidates,
+    });
+
+    println!("{}", serde_json::to_string_pretty(&output)?);
+    Ok(())
+}
+
 fn colorize_method(method: &str) -> String {
     use owo_colors::OwoColorize;
     match method {

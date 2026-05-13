@@ -47,6 +47,8 @@ pub enum Cmd {
     Stats,
     /// Search with detailed scoring explanation (alias for find --explain)
     Explain(FindArgs),
+    /// Agent-friendly preflight check for duplicate capabilities
+    Agent(AgentArgs),
     /// Print what the parser extracts from a single file
     Diagnose {
         /// Path to a source file
@@ -82,6 +84,32 @@ pub struct FindArgs {
     /// Show scoring explanation
     #[arg(long)]
     pub explain: bool,
+}
+
+#[derive(clap::Args, Clone)]
+pub struct AgentArgs {
+    /// Natural-language task or intent to check before coding
+    pub task: Vec<String>,
+
+    /// Max candidate capabilities to return
+    #[arg(long, short = 'n', default_value_t = 5)]
+    pub limit: usize,
+
+    /// Filter by language
+    #[arg(long, value_enum)]
+    pub lang: Option<LangFilter>,
+
+    /// Filter by capability kind
+    #[arg(long, value_enum)]
+    pub kind: Option<KindFilter>,
+
+    /// Filter by file path prefix
+    #[arg(long)]
+    pub path: Option<String>,
+
+    /// Accepted for hook ergonomics; agent output is always JSON
+    #[arg(long)]
+    pub json: bool,
 }
 
 #[derive(Clone, ValueEnum)]
@@ -125,6 +153,7 @@ fn main() -> Result<()> {
             args.explain = true;
             commands::find(&repo_root, &args, cli.no_color)
         }
+        Cmd::Agent(args) => commands::agent(&repo_root, &args),
         Cmd::Show { id } => commands::show(&repo_root, id, cli.no_color),
         Cmd::Stats => commands::stats(&repo_root),
         Cmd::Diagnose { file } => commands::diagnose(&file),

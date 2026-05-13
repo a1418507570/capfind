@@ -46,6 +46,7 @@ The stable path focuses on Java Spring repositories, and `main` has started the 
 - `.capfind/config.toml` 中 `[search] k1/b` 评分参数生效。
 - `find --lang/--kind/--path` 过滤。
 - `find --explain` / `explain` 评分解释。
+- `capfind agent` 提供 Agent 自动触发前置检查 JSON 输出。
 - `.gitignore` + `.capfindignore` 忽略规则。
 - CLI 端到端集成测试覆盖 `init/index/find/show/stats/explain` 主流程。
 - GitHub Actions CI 自动执行 `cargo fmt`、`cargo clippy`、`cargo test`。
@@ -162,6 +163,21 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
+## Agent 自动触发 / Agent preflight
+
+`capfind` 目前不会自己常驻后台，也不会像 RTK 一样无条件自动触发；但已经提供 `capfind agent` 作为 Agent Hook / IDE Hook 的前置检查入口。AI Agent 在准备新增接口或 Service 前，可以自动调用它，先查询仓库里是否已有类似能力：
+
+`capfind` does not run as a background daemon and does not auto-trigger by itself like RTK. It now provides `capfind agent` as the preflight entry point for Agent hooks or IDE hooks. Before creating a new endpoint or service, an AI agent can call it to check whether similar capabilities already exist:
+
+```bash
+capfind agent add mdm query endpoint
+capfind agent add mdm query endpoint --kind endpoint --json
+```
+
+输出是稳定 JSON，包含 `has_candidates`、`recommendation` 和带 `file:line` 的候选能力。Hook 可以根据 `recommendation` 决定先复用、先询问用户，还是继续生成新代码。
+
+The output is stable JSON with `has_candidates`, `recommendation`, and candidate capabilities with `file:line` citations. Hooks can use `recommendation` to decide whether to reuse, ask the user, or continue implementing new code.
+
 ## 常用命令 / Common commands
 
 ```bash
@@ -170,6 +186,7 @@ capfind index
 capfind find mdm query
 capfind find mdm query --kind endpoint --limit 5
 capfind explain mdm query
+capfind agent add mdm query endpoint
 capfind show 12
 capfind stats
 capfind diagnose src/main/java/com/demo/MdmController.java
@@ -179,15 +196,15 @@ capfind diagnose src/main/java/com/demo/MdmController.java
 
 - **v0.1**：Java parser、准确引用、BM25 搜索、`[search]` 配置、Explain、`.capfindignore`、CLI 集成测试、CI、多平台 Release、安装脚本、基础体验。
 - **v0.2**：Go HTTP route parser、Proto parser、增量索引、完整配置 schema、性能优化。
-- **v0.3**：MCP Server、稳定 JSON schema、AI Agent / PR Review 集成。
+- **v0.3**：MCP Server、自动触发 Hook、稳定 JSON schema、AI Agent / PR Review 集成。
 
 See [ROADMAP](./docs/ROADMAP.md) for the detailed plan.
 
 ## 状态 / Status
 
-v0.1.0 已发布。当前主链路已经打通：Java capability → index → search → citation。`main` 分支正在推进 v0.2：Go HTTP route parser 第一版已进入实现；下一步会继续扩展 Go 框架覆盖与 Proto/RPC parser。
+v0.1.0 已发布。当前主链路已经打通：Java capability → index → search → citation。`main` 分支正在推进 v0.2 与 Agent 集成前置能力：Go HTTP route parser 第一版和 `capfind agent` 前置检查入口已进入实现；下一步会继续扩展 Go 框架覆盖、Proto/RPC parser 与真正的 Hook/MCP 自动触发。
 
-v0.1.0 has been released. The main loop is working: Java capability → index → search → citation. The `main` branch is now moving toward v0.2: the first Go HTTP route parser slice is implemented; next steps are broader Go framework coverage and Proto/RPC parsing.
+v0.1.0 has been released. The main loop is working: Java capability → index → search → citation. The `main` branch is now moving toward v0.2 and Agent integration preflight: the first Go HTTP route parser slice and `capfind agent` preflight entry point are implemented; next steps are broader Go framework coverage, Proto/RPC parsing, and real Hook/MCP auto-triggering.
 
 ## 许可证 / License
 

@@ -32,8 +32,11 @@
 
 ## v0.3 — Agent / MCP 集成
 
+状态：`capfind agent` 前置检查入口已进入 `main`，可供 Hook/IDE 自动调用。
+
 目标：让 CodeBuddy、Claude Code、Cursor 等 AI coding agent 可以直接检索和复用能力。
 
+- `capfind agent`：Agent Hook / IDE Hook 可调用的 JSON 前置检查入口
 - `capfind-mcp` server
 - 稳定 JSON schema
 - 重复能力检测：对“我要新增一个能力”的需求返回已有候选
@@ -42,4 +45,4 @@
 
 ## 当前重点
 
-短期优先级已从 v0.1 收敛转向 v0.2：Go HTTP route parser 第一版已进入实现；下一步继续扩展 Go 框架覆盖、补充真实 Go fixture，并启动 Proto/RPC parser。
+短期优先级已从 v0.1 收敛转向 v0.2 / v0.3 前置能力：Go HTTP route parser 第一版和 `capfind agent` 前置检查入口已进入实现；下一步继续扩展 Go 框架覆盖、补充真实 Go fixture，并启动 Proto/RPC parser 与 MCP/Hook 自动触发。
