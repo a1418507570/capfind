@@ -39,6 +39,11 @@ pub fn print_compact(hits: &[&Hit], caps: &[Capability], no_color: bool) {
 
         // Line 3: file:line
         println!("  {}:{}", cap.file, cap.line);
+        if is_reference(cap) {
+            if let Some(ref doc) = cap.doc {
+                println!("  reference: {}", doc);
+            }
+        }
 
         if let Some(ref explain) = hit.explain {
             println!(
@@ -91,6 +96,10 @@ pub fn print_json(
                 "class": cap.class,
                 "method": cap.method,
                 "signature": cap.signature,
+                "annotations": cap.annotations,
+                "tags": cap.tags,
+                "doc": cap.doc,
+                "is_reference": is_reference(cap),
                 "file": cap.file,
                 "line": cap.line,
             });
@@ -104,6 +113,9 @@ pub fn print_json(
                 obj["rpc"] = json!({
                     "service": rpc.service,
                     "rpc": rpc.rpc,
+                    "req": rpc.req,
+                    "rsp": rpc.rsp,
+                    "proto_file": rpc.proto_file,
                 });
             }
             if let Some(ref explain) = h.explain {
@@ -137,12 +149,15 @@ pub fn print_json(
     Ok(())
 }
 
+pub const AGENT_SCHEMA_VERSION: &str = "capfind.agent.v1";
+
 /// Print agent-friendly JSON preflight output.
 pub fn print_agent_json(
     task: &str,
     hits: &[&Hit],
     caps: &[Capability],
     elapsed: Duration,
+    fail_on_candidates: bool,
 ) -> anyhow::Result<()> {
     use serde_json::json;
 
@@ -158,6 +173,10 @@ pub fn print_agent_json(
                 "class": cap.class,
                 "method": cap.method,
                 "signature": cap.signature,
+                "annotations": cap.annotations,
+                "tags": cap.tags,
+                "doc": cap.doc,
+                "is_reference": is_reference(cap),
                 "file": cap.file,
                 "line": cap.line,
             });
@@ -171,33 +190,65 @@ pub fn print_agent_json(
                 obj["rpc"] = json!({
                     "service": rpc.service,
                     "rpc": rpc.rpc,
+                    "req": rpc.req,
+                    "rsp": rpc.rsp,
+                    "proto_file": rpc.proto_file,
                 });
             }
             obj
         })
         .collect();
 
-    let recommendation = if candidates.is_empty() {
-        "no_similar_capability_found"
-    } else {
+    let has_candidates = !candidates.is_empty();
+    let recommendation = if has_candidates {
         "review_existing_capability_before_implementing"
+    } else {
+        "no_similar_capability_found"
+    };
+    let agent_hint = if has_candidates {
+        "Review the candidates and cited file:line locations before creating new code. Prefer reuse or extension when appropriate."
+    } else {
+        "No indexed capability matched this task. It may be safe to implement, but verify domain context first."
+    };
+    let next_actions = if has_candidates {
+        vec![
+            "open_candidate_file_lines",
+            "prefer_reuse_or_extension",
+            "ask_user_before_creating_duplicate_capability",
+        ]
+    } else {
+        vec![
+            "verify_domain_context",
+            "continue_implementation_if_no_conflict",
+        ]
     };
 
     let output = json!({
+        "schema_version": AGENT_SCHEMA_VERSION,
         "task": task,
         "took_ms": elapsed.as_millis(),
-        "has_candidates": !candidates.is_empty(),
+        "has_candidates": has_candidates,
         "recommendation": recommendation,
-        "agent_hint": if candidates.is_empty() {
-            "No indexed capability matched this task. It may be safe to implement, but verify domain context first."
-        } else {
-            "Review the candidates and cited file:line locations before creating new code. Prefer reuse or extension when appropriate."
+        "agent_hint": agent_hint,
+        "exit_policy": {
+            "fail_on_candidates": fail_on_candidates,
+            "candidate_exit_code": if fail_on_candidates { 2 } else { 0 },
+            "no_candidate_exit_code": 0,
         },
+        "next_actions": next_actions,
         "candidates": candidates,
     });
 
     println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())
+}
+
+fn is_reference(cap: &Capability) -> bool {
+    cap.tags.iter().any(|tag| tag == "external")
+        || cap
+            .annotations
+            .iter()
+            .any(|annotation| annotation.starts_with("external_"))
 }
 
 fn colorize_method(method: &str) -> String {

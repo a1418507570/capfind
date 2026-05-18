@@ -5,7 +5,7 @@ edition     = { workspace = true }
 rust-version= { workspace = true }
 authors     = { workspace = true }
 license     = { workspace = true }
-description = "capfind: language parsers (Java regex, Go tree-sitter, proto)"
+description = "capfind: language parsers for Java, Go, and Proto"
 repository  = { workspace = true }
 
 [dependencies]

@@ -6,9 +6,9 @@
 > 在大型多语言仓库里先找到已有能力，再决定是否新增实现。  
 > Find reusable capabilities in big polyglot repos — before you build a new one.
 
-`capfind` 是一个零 LLM、确定性的代码能力检索工具。它会扫描多模块 Java / Go 代码库，建立一个小型索引，记录仓库里已经存在的能力：HTTP Endpoint、Service 方法、DAO 方法等。你或 AI 编码助手可以直接查询类似“有没有已经查询 MDM 的接口？”这样的问题，并在毫秒级拿到带 `file:line` 引用的结果。
+`capfind` 是一个零 LLM、确定性的代码能力检索工具。它会扫描多模块 Java / Go / Proto 代码库，建立一个小型索引，记录仓库里已经存在的能力：HTTP Endpoint、RPC、Service 方法、DAO 方法等。你或 AI 编码助手可以直接查询类似“有没有已经查询 MDM 的接口？”这样的问题，并在毫秒级拿到带 `file:line` 引用的结果。
 
-`capfind` is a zero-LLM, deterministic capability finder. It scans a multi-module Java / Go codebase and builds a compact index of existing capabilities such as HTTP endpoints, service methods, and DAO methods. You — or an AI coding agent — can ask questions like “is there already an endpoint that queries MDM?” and get millisecond results with `file:line` citations.
+`capfind` is a zero-LLM, deterministic capability finder. It scans a multi-module Java / Go / Proto codebase and builds a compact index of existing capabilities such as HTTP endpoints, RPCs, service methods, and DAO methods. You — or an AI coding agent — can ask questions like “is there already an endpoint that queries MDM?” and get millisecond results with `file:line` citations.
 
 ```bash
 $ capfind find mdm query
@@ -28,40 +28,53 @@ Large backend repositories already contain many reusable capabilities, but devel
 `capfind` helps you discover before you build:
 
 - **零 LLM / Zero LLM**：同一个 query + 同一个 index，总是得到同一个结果。
+- **引用内容索引 / Referenced-content indexing**：不仅索引工程内代码，还索引工程引用的外部 jar、声明依赖和实际 import，让“能不能复用已有外部 API”也能被发现。
 - **低成本 / Cheap**：几秒完成中型仓库索引，毫秒级查询。
 - **易部署 / Portable**：单个 Rust 二进制文件，无服务端、无 daemon、无 JVM 依赖。
 - **Agent 友好 / AI-friendly**：每个结果都带 `file:line`，方便 AI Agent 验证后再行动。
 
 ## 当前能力 / Current capabilities
 
-当前稳定能力聚焦 Java Spring 仓库，`main` 分支已开始引入 v0.2 的 Go HTTP route parser 第一版：
+当前稳定能力从 Java Spring 主链路扩展到 v0.2 的 Go / Proto / 外部依赖扫描：
 
-The stable path focuses on Java Spring repositories, and `main` has started the first v0.2 slice: Go HTTP route parsing.
+The stable path has expanded from the Java Spring main loop to the v0.2 Go / Proto / external dependency scanning track.
 
 - Java Spring `@RestController` / `@Controller` HTTP Endpoint 解析。
 - Java `@Service` / `@Repository` / `@Component` 方法解析。
-- Go `router.GET/POST/...`、`http.HandleFunc`、`mux.HandleFunc(...).Methods(...)` HTTP route 解析。
+- Go `router.GET/POST/...`、`Group("/v1")` 前缀拼接、chi `r.Get/Post/...`、`http.HandleFunc`、`mux.HandleFunc(...).Methods(...)` HTTP route 解析。
+- Proto `service` / `rpc` 解析，支持简单 `google.api.http` annotation 映射。
+- Java 外部依赖 / 外部 API 扫描：Maven `pom.xml`、Gradle `build.gradle(.kts)`、本地 `*.jar` 文件名、class 名与 public/protected 方法签名、`*-sources.jar` 方法签名与 Javadoc 摘要、`*-javadoc.jar` 方法文档摘要、源码中的外部 `import`。
+- 引用内容命中会在 JSON 中标记 `is_reference`，并输出 `tags`、`annotations`、`doc`，便于 Agent 判断这是外部依赖/API 而不是工程内实现。
 - 准确的 `file:line` 引用。
 - BM25 + 字段权重 + 层级 boost 搜索。
+- 增量索引基础版：`file_stats` 记录 mtime/size/hash，`capfind index` 复用未变化文件，`--rehash` 强制全量重建。
 - `.capfind/config.toml` 中 `[search] k1/b` 评分参数生效。
 - `find --lang/--kind/--path` 过滤。
 - `find --explain` / `explain` 评分解释。
 - `capfind agent` 提供 Agent 自动触发前置检查 JSON 输出。
+- `capfind agent --auto-index` 支持 Hook 首次运行自动建索引。
+- `capfind agent --fail-on-candidates` 支持检测到候选能力时以退出码 `2` 阻断生成流程。
+- `scripts/capfind-agent-hook.sh` 提供通用 Hook 包装脚本。
+- `capfind.agent.v1` 固化 Agent JSON schema，包含 `schema_version`、`exit_policy` 和 `next_actions`。
+- `capfind mcp` 提供 MCP-compatible 工具目录、一次性工具调用 shim 和 JSON-RPC stdio server。
+- [Agent Hook 集成文档](./docs/HOOKS.md) 提供触发时机、schema 和接入示例。
+- [MCP / Agent 工具集成文档](./docs/MCP.md) 提供工具目录和调用示例。
 - `.gitignore` + `.capfindignore` 忽略规则。
-- CLI 端到端集成测试覆盖 `init/index/find/show/stats/explain` 主流程。
+- CLI 端到端集成测试覆盖 `init/index/find/show/stats/explain/agent` 主流程。
 - GitHub Actions CI 自动执行 `cargo fmt`、`cargo clippy`、`cargo test`。
 - `cargo xtask dist` 生成本机 release 包和 SHA-256 校验文件。
 - GitHub Release 工作流在 `v*` tag 上自动构建 Linux/macOS 包并发布 Release。
 - `scripts/install.sh` 可从 GitHub Release 下载、校验并安装 `capfind`。
 
-Go parser 仍处于 v0.2 早期切片；Proto / RPC 支持计划放在后续 v0.2 迭代。
+v0.2 发布候选范围已覆盖常见 Go 直接路由、简单 Group 前缀、chi 风格方法、Proto `service` / `rpc`、简单 `google.api.http` annotation，以及 Java 工程声明的外部 jar 依赖、源码实际使用的外部 import、本地 jar 内的 class 名称和 public/protected 方法签名、`*-sources.jar` 中的方法签名与 Javadoc 摘要、`*-javadoc.jar` 中的方法文档摘要。引用内容会带 `external` 标签并参与检索。注意：当前外部 jar 会索引依赖坐标、本地 jar 文件名、class 名称、方法签名、sources jar 文档摘要和 javadoc jar 方法说明，暂不解析方法体。
 
-The Go parser is still an early v0.2 slice; Proto / RPC support is planned for later v0.2 iterations.
+The v0.2 release-candidate scope covers common Go direct route calls, simple Group prefixes, chi-style methods, Proto `service` / `rpc`, simple `google.api.http` annotations, Java external jar dependencies, external imports used by source code, class names and public/protected method signatures inside local jars, method signatures and Javadoc summaries in `*-sources.jar`, plus method documentation summaries in `*-javadoc.jar`. Referenced content is tagged as `external` and participates in search. Note: the external-jar slice indexes dependency coordinates, local jar file names, class names, method signatures, sources-jar doc summaries, and javadoc-jar method docs; it does not parse method bodies yet.
 
 ## 安装 / Install
 
-> v0.1 仍在快速迭代中，正式安装方式会随首个 release 固化。  
-> v0.1 is under active development. Install commands will be finalized with the first release.
+> 当前公开 release 为 v0.1.0；v0.2.0 正在发布收敛中，发布后可用同一安装脚本指定版本安装。
+>
+> The current public release is v0.1.0. v0.2.0 is in release hardening and can be installed with the same script after the tag is published.
 
 ```bash
 # 一键安装 / one-line install (Linux/macOS)
@@ -159,8 +172,8 @@ ls target/dist/
 Multi-platform release is handled by the GitHub Actions Release workflow. Pushing a `v*` tag builds Linux/macOS packages, uploads workflow artifacts, and creates a GitHub Release:
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
 ## Agent 自动触发 / Agent preflight
@@ -172,11 +185,31 @@ git push origin v0.1.0
 ```bash
 capfind agent add mdm query endpoint
 capfind agent add mdm query endpoint --kind endpoint --json
+capfind agent add mdm query endpoint --auto-index --fail-on-candidates --json
 ```
 
-输出是稳定 JSON，包含 `has_candidates`、`recommendation` 和带 `file:line` 的候选能力。Hook 可以根据 `recommendation` 决定先复用、先询问用户，还是继续生成新代码。
+输出是稳定 JSON，schema 版本为 `capfind.agent.v1`，包含 `schema_version`、`has_candidates`、`recommendation`、`exit_policy`、`next_actions` 和带 `file:line` 的候选能力。Hook 可以根据 `recommendation` 决定先复用、先询问用户，还是继续生成新代码。`--auto-index` 适合 Hook 第一次运行时自动创建 `.capfind/index.cfi`；`--fail-on-candidates` 会在找到候选能力时以退出码 `2` 结束，适合“先阻断、再让 Agent 复核”的严格模式。
 
-The output is stable JSON with `has_candidates`, `recommendation`, and candidate capabilities with `file:line` citations. Hooks can use `recommendation` to decide whether to reuse, ask the user, or continue implementing new code.
+The output is stable JSON with schema version `capfind.agent.v1`. It includes `schema_version`, `has_candidates`, `recommendation`, `exit_policy`, `next_actions`, and candidate capabilities with `file:line` citations. Hooks can use `recommendation` to decide whether to reuse, ask the user, or continue implementing new code. `--auto-index` creates `.capfind/index.cfi` on first hook run; `--fail-on-candidates` exits with code `2` when candidates are found, which is useful for strict “block first, review before coding” workflows.
+
+通用 Hook 包装脚本：
+
+Generic hook wrapper:
+
+```bash
+# 非阻断模式 / advisory mode
+scripts/capfind-agent-hook.sh add mdm query endpoint
+
+# 阻断模式 / strict blocking mode
+CAPFIND_HOOK_STRICT=1 scripts/capfind-agent-hook.sh add mdm query endpoint
+
+# 从 stdin 接收任务 / read task from stdin
+echo "add mdm query endpoint" | scripts/capfind-agent-hook.sh
+```
+
+更多触发时机、JSON schema 和 Agent/IDE 接入建议见 [Agent Hook 集成文档](./docs/HOOKS.md)。
+
+See [Agent Hook Integration](./docs/HOOKS.md) for trigger points, JSON schema, and Agent/IDE integration guidance.
 
 ## 常用命令 / Common commands
 
@@ -185,8 +218,14 @@ capfind init
 capfind index
 capfind find mdm query
 capfind find mdm query --kind endpoint --limit 5
+capfind find jackson databind # 查询引用内容：外部 jar / import
+capfind find external dependency jackson --json
 capfind explain mdm query
-capfind agent add mdm query endpoint
+capfind agent add mdm query endpoint --auto-index --json
+CAPFIND_HOOK_STRICT=1 scripts/capfind-agent-hook.sh add mdm query endpoint
+capfind mcp --list-tools
+capfind mcp --call capfind_search --args '{"query":"mdm query","limit":5}'
+capfind mcp --stdio
 capfind show 12
 capfind stats
 capfind diagnose src/main/java/com/demo/MdmController.java
@@ -195,16 +234,16 @@ capfind diagnose src/main/java/com/demo/MdmController.java
 ## 路线图 / Roadmap
 
 - **v0.1**：Java parser、准确引用、BM25 搜索、`[search]` 配置、Explain、`.capfindignore`、CLI 集成测试、CI、多平台 Release、安装脚本、基础体验。
-- **v0.2**：Go HTTP route parser、Proto parser、增量索引、完整配置 schema、性能优化。
-- **v0.3**：MCP Server、自动触发 Hook、稳定 JSON schema、AI Agent / PR Review 集成。
+- **v0.2**：Go HTTP route parser、Proto/RPC parser、Java 外部 jar/API 扫描、引用内容元数据、增量索引基础版、Agent preflight、Hook 支撑、MCP-compatible 工具 shim 与 stdio server 基础版。
+- **v0.3**：更完整的 MCP 协议覆盖、独立 `capfind-mcp` crate、IDE / Agent 配置模板、PR Review 前置检查、大仓库 benchmark 与配置增强。
 
-See [ROADMAP](./docs/ROADMAP.md) for the detailed plan.
+See [ROADMAP](./docs/ROADMAP.md) for the detailed plan. See [CHANGELOG](./CHANGELOG.md) and [v0.2 Release Hardening](./docs/RELEASE_V0.2.md) for release notes and the release checklist.
 
 ## 状态 / Status
 
-v0.1.0 已发布。当前主链路已经打通：Java capability → index → search → citation。`main` 分支正在推进 v0.2 与 Agent 集成前置能力：Go HTTP route parser 第一版和 `capfind agent` 前置检查入口已进入实现；下一步会继续扩展 Go 框架覆盖、Proto/RPC parser 与真正的 Hook/MCP 自动触发。
+v0.2.0 已发布。`capfind` 当前已打通 Java / Go / Proto capability → index → search → citation 主链路，并支持引用内容索引、增量索引基础版、Agent preflight、Hook、MCP-compatible 工具 shim、JSON-RPC stdio server 和集成文档。
 
-v0.1.0 has been released. The main loop is working: Java capability → index → search → citation. The `main` branch is now moving toward v0.2 and Agent integration preflight: the first Go HTTP route parser slice and `capfind agent` preflight entry point are implemented; next steps are broader Go framework coverage, Proto/RPC parsing, and real Hook/MCP auto-triggering.
+v0.2.0 has been released. `capfind` now supports the Java / Go / Proto capability → index → search → citation loop, referenced-content indexing, basic incremental indexing, Agent preflight, Hook support, MCP-compatible tool shim, JSON-RPC stdio server, and integration docs.
 
 ## 许可证 / License
 

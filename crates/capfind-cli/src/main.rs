@@ -49,6 +49,8 @@ pub enum Cmd {
     Explain(FindArgs),
     /// Agent-friendly preflight check for duplicate capabilities
     Agent(AgentArgs),
+    /// MCP-compatible tool catalog and local tool-call shim
+    Mcp(McpArgs),
     /// Print what the parser extracts from a single file
     Diagnose {
         /// Path to a source file
@@ -107,9 +109,36 @@ pub struct AgentArgs {
     #[arg(long)]
     pub path: Option<String>,
 
+    /// Build the index automatically when .capfind/index.cfi is missing
+    #[arg(long)]
+    pub auto_index: bool,
+
+    /// Exit with code 2 when similar candidates are found; useful for blocking hooks
+    #[arg(long)]
+    pub fail_on_candidates: bool,
+
     /// Accepted for hook ergonomics; agent output is always JSON
     #[arg(long)]
     pub json: bool,
+}
+
+#[derive(clap::Args, Clone)]
+pub struct McpArgs {
+    /// Run a JSON-RPC MCP stdio server
+    #[arg(long)]
+    pub stdio: bool,
+
+    /// Print MCP tool definitions as JSON and exit
+    #[arg(long)]
+    pub list_tools: bool,
+
+    /// Call a tool once without starting a long-running server
+    #[arg(long)]
+    pub call: Option<String>,
+
+    /// JSON arguments for --call
+    #[arg(long, default_value = "{}")]
+    pub args: String,
 }
 
 #[derive(Clone, ValueEnum)]
@@ -154,6 +183,7 @@ fn main() -> Result<()> {
             commands::find(&repo_root, &args, cli.no_color)
         }
         Cmd::Agent(args) => commands::agent(&repo_root, &args),
+        Cmd::Mcp(args) => commands::mcp(&repo_root, &args),
         Cmd::Show { id } => commands::show(&repo_root, id, cli.no_color),
         Cmd::Stats => commands::stats(&repo_root),
         Cmd::Diagnose { file } => commands::diagnose(&file),
