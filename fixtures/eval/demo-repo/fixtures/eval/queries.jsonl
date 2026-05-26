@@ -1,0 +1,8 @@
+{"id":"java-http-mdm","query":"mdm query endpoint","limit":5,"expected":[{"kind":"HttpEndpoint","http_method":"POST","http_path":"/mdm/query","method":"queryMdm"}]}
+{"id":"java-service-mdm","query":"mdm query service","limit":5,"expected":[{"kind":"ServiceMethod","class":"MdmService","method":"query"}]}
+{"id":"go-http-mdm","query":"go mdm query","limit":5,"lang":"go","expected":[{"lang":"Go","http_method":"GET","http_path":"/v1/go/mdm/query"}]}
+{"id":"proto-rpc-mdm","query":"query mdm rpc","limit":5,"kind":"rpc","expected":[{"kind":"RpcMethod","rpc_service":"MdmService","rpc_method":"QueryMdm"}]}
+{"id":"jackson-dependency","query":"jackson databind","limit":5,"expected":[{"is_reference":true,"signature_contains":"jackson-databind"}]}
+{"id":"feign-inventory-client","query":"inventory lookup feign client","limit":10,"expected":[{"kind":"HttpEndpoint","class":"InventoryClient","method":"lookup","http_path":"/inventory/items/{id}","tags_contains":["framework:feign_client"]}]}
+{"id":"dubbo-catalog-service","query":"catalog dubbo getCatalog rpc","limit":10,"expected":[{"kind":"RpcMethod","class":"CatalogDubboServiceImpl","method":"getCatalog","tags_contains":["framework:dubbo_service"]}]}
+{"id":"mybatis-order-mapper","query":"order mapper selectById mybatis","limit":10,"expected":[{"kind":"DaoMethod","class":"OrderMapper","method":"selectById","tags_contains":["framework:mybatis_xml"]}]}

@@ -1,0 +1,3 @@
+{"id":"controller-indexed","file":"src/main/java/com/demo/MdmController.java","expected_diagnosis":"indexed_with_capabilities","signals":{"indexed_file":true}}
+{"id":"mybatis-xml-indexed","file":"src/main/resources/mapper/OrderMapper.xml","expected_diagnosis":"indexed_with_capabilities","signals":{"indexed_file":true}}
+{"id":"plain-unsupported","file":"README.md","expected_diagnosis":"file_missing","signals":{"exists":false}}

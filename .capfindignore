@@ -1,0 +1,15 @@
+# capfind ignore file — layered on top of .gitignore.
+# Use gitignore syntax. Paths are repo-relative.
+
+/target
+/build
+/node_modules
+/vendor
+/.gradle
+/generated
+/fixtures/**/target
+**/*Test.java
+**/*Tests.java
+**/src/test/**
+**/*_test.go
+**/*.pb.go

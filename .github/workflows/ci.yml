@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    name: Rust quality gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.95"
+          components: rustfmt, clippy
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Run clippy
+        run: cargo clippy --workspace --all-targets
+
+      - name: Run tests
+        run: cargo test --workspace
+
+      - name: Smoke product config setup
+        run: |
+          cargo build --bin capfind
+          CAPFIND_BIN="$PWD/target/debug/capfind" sh scripts/smoke-product-config.sh
+
+      - name: Run bundled eval gate
+        run: |
+          repo="$PWD"
+          for fixture in fixtures/eval/demo-repo fixtures/eval/enterprise-repo; do
+            tmp="$(mktemp -d)"
+            cp -R "$fixture" "$tmp/repo"
+            cd "$tmp/repo"
+            cargo run --manifest-path "$repo/Cargo.toml" --bin capfind -- init
+            cargo run --manifest-path "$repo/Cargo.toml" --bin capfind -- index
+            if [ "$fixture" = "fixtures/eval/enterprise-repo" ]; then
+              cargo run --manifest-path "$repo/Cargo.toml" --bin capfind -- eval --suite enterprise-fixture --fail-under-recall 1.0 --fail-under-file-pass 1.0 --fail-under-edge-pass 1.0 --fail-under-diagnostic-pass 1.0 --fail-under-ownership-pass 1.0
+            else
+              cargo run --manifest-path "$repo/Cargo.toml" --bin capfind -- eval --suite demo-fixture --fail-under-recall 1.0 --fail-under-file-pass 1.0 --fail-under-edge-pass 1.0
+            fi
+            cd "$repo"
+          done
+
+      - name: Check release package
+        run: cargo xtask dist
+
+      - name: Smoke release install script
+        run: sh scripts/smoke-install-release.sh
+
+      - name: Check shell script syntax
+        run: |
+          sh -n scripts/install.sh
+          sh -n scripts/capfind-agent-hook.sh
+          sh -n scripts/smoke-product-config.sh
+          sh -n scripts/smoke-install-release.sh

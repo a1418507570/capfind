@@ -1,0 +1,5 @@
+{"id":"enterprise-payment-module-owner","node_kind":"module","name":"services/payment-core","owner":"Payments Platform","source":"config.modules","ownership_kind":"module_owner"}
+{"id":"enterprise-payment-package-owner","node_kind":"class","name":"PaymentOrchestrator","owner":"Payments Platform","source":"config.packages","ownership_kind":"package_owner"}
+{"id":"enterprise-pricing-client-package-owner","node_kind":"class","name":"PricingPolicyClient","owner":"Pricing Platform","source":"config.packages","ownership_kind":"package_owner"}
+{"id":"enterprise-pricing-sdk-external-owner","type":"external_dependency","name_contains":"pricing-sdk","owner":"Pricing Platform","source":"config.external","ownership_kind":"external_owner"}
+{"id":"enterprise-audit-client-external-owner","type":"external_dependency","name_contains":"audit-client","owner":"Audit Platform","source":"config.external","ownership_kind":"external_owner"}

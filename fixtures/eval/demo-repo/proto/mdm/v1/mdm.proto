@@ -1,0 +1,12 @@
+syntax = "proto3";
+package demo.mdm.v1;
+
+service MdmService {
+  rpc QueryMdm(QueryMdmRequest) returns (QueryMdmResponse) {
+    option (google.api.http) = {
+      post: "/v1/mdm/query"
+      body: "*"
+    };
+  }
+}
+

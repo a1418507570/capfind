@@ -1,0 +1,8 @@
+<mapper namespace="com.acme.order.core.OrderMapper">
+  <insert id="insertOrder" parameterType="com.acme.order.core.SubmitOrderRequest">
+    insert into enterprise_order(id, customer_id, risk_level) values(#{orderId}, #{customerId}, #{riskLevel})
+  </insert>
+  <select id="findOrder" parameterType="java.lang.String" resultType="com.acme.order.core.OrderRecord">
+    select * from enterprise_order where id = #{id}
+  </select>
+</mapper>

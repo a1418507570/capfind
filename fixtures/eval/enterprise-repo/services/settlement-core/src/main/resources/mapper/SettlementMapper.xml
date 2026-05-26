@@ -1,0 +1,5 @@
+<mapper namespace="com.acme.settlement.core.SettlementMapper">
+  <select id="selectPolicy" parameterType="java.lang.String" resultType="com.acme.settlement.core.SettlementPolicy">
+    select * from settlement_policy where region = #{region}
+  </select>
+</mapper>

@@ -1,0 +1,64 @@
+version = 1
+
+[index]
+roots = ["."]
+include = ["**/*.java", "**/*.go", "**/*.proto", "**/*.xml", "**/pom.xml"]
+
+[ownership.modules]
+"apps/order-api" = "Order Experience"
+"clients/pricing-client" = "Pricing Platform"
+"clients/risk-client" = "Risk Platform"
+"services/customer-core" = "Customer Platform"
+"services/order-core" = "Order Platform"
+"services/payment-core" = "Payments Platform"
+"services/settlement-core" = "Settlement Platform"
+
+[ownership.packages]
+"com.acme.payment" = "Payments Platform"
+"com.acme.pricing" = "Pricing Platform"
+"com.acme.risk" = "Risk Platform"
+
+[ownership.external]
+"pricing-sdk" = "Pricing Platform"
+"com.acme.pricing" = "Pricing Platform"
+"audit-client" = "Audit Platform"
+
+[services."order-api"]
+name = "Order API"
+module = "apps/order-api"
+package = "com.acme.order.api"
+owner = "Order Experience"
+tier = "gold"
+slo = "99.9%"
+runbook = "docs/runbooks/order-api.md"
+tags = ["customer-facing", "checkout"]
+
+[services."order-core"]
+name = "Order Core"
+module = "services/order-core"
+package = "com.acme.order.core"
+owner = "Order Platform"
+tier = "gold"
+slo = "99.9%"
+runbook = "docs/runbooks/order-core.md"
+tags = ["business-capability"]
+
+[services."payment-core"]
+name = "Payment Core"
+module = "services/payment-core"
+package = "com.acme.payment"
+owner = "Payments Platform"
+tier = "platinum"
+slo = "99.95%"
+runbook = "docs/runbooks/payment-core.md"
+tags = ["money-movement"]
+
+[services."customer-core"]
+name = "Customer Core"
+module = "services/customer-core"
+package = "com.acme.customer"
+owner = "Customer Platform"
+tier = "gold"
+slo = "99.9%"
+runbook = "docs/runbooks/customer-core.md"
+tags = ["profile"]
