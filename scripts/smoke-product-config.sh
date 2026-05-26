@@ -74,6 +74,8 @@ need_not_contains "$repo/.capfind/config.suggested.toml" '"**/*.go"'
 need_not_contains "$repo/.capfind/config.suggested.toml" 'com.noisy'
 need_contains "$repo/.capfind/integrations/mcp.generic.json" '"mcpServers"'
 need_contains "$repo/.capfind/integrations/agent-rules.md" 'capfind_context'
+need_contains "$repo/.capfind/integrations/agent-rules.md" 'rg/git grep after capfind'
+need_contains "$repo/.capfind/integrations/mcp-client.md" 'before rg/git grep'
 
 printf 'sentinel\n' >"$repo/.capfind/config.suggested.toml"
 (cd "$repo" && "$CAPFIND_BIN" init --product-config >/dev/null)

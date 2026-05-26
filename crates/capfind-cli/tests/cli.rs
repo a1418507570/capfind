@@ -550,10 +550,17 @@ fn init_product_config_generates_safe_agent_templates() {
         .path()
         .join(".capfind/integrations/agent-rules.md")
         .exists());
+    let agent_rules =
+        fs::read_to_string(dir.path().join(".capfind/integrations/agent-rules.md")).unwrap();
+    assert!(agent_rules.contains("use capfind before text search"));
+    assert!(agent_rules.contains("rg/git grep after capfind"));
     assert!(dir
         .path()
         .join(".capfind/integrations/mcp-client.md")
         .exists());
+    let mcp_client =
+        fs::read_to_string(dir.path().join(".capfind/integrations/mcp-client.md")).unwrap();
+    assert!(mcp_client.contains("before rg/git grep"));
 
     fs::write(&suggested_config, "sentinel").unwrap();
     capfind()
@@ -760,6 +767,16 @@ tags = ["agent-facing"]
         .any(|tool| {
             tool["name"] == "capfind_context"
                 && tool["input_schema"]["properties"]["record_shown"]["type"] == "boolean"
+        }));
+    assert!(mcp_tools_json["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|tool| {
+            tool["name"] == "capfind_context"
+                && tool["description"]
+                    .as_str()
+                    .is_some_and(|description| description.contains("before rg/git grep"))
         }));
     assert!(mcp_tools_json["tools"]
         .as_array()

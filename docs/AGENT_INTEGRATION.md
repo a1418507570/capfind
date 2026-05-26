@@ -43,6 +43,20 @@ capfind agent add mdm query endpoint --auto-index --fail-on-candidates --json
 
 ## Tool Selection Rules
 
+### Search preflight
+
+When the user intent is to find an existing interface, capability, call chain,
+or reusable implementation, treat capfind as the first search preflight:
+
+1. Detect capfind availability: use it when the repository has `.capfind/` or
+   the `capfind` command is available.
+2. Check health before searching: call MCP `capfind_doctor`, or run
+   `capfind stats` when `.capfind/index.cfi` exists plus `capfind doctor --json`.
+3. Search indexed capabilities first: use `capfind_context` for implementation
+   planning, or `capfind_search` / `capfind find` for exploratory lookup.
+4. Use `rg` or `git grep` after capfind to verify cited candidates, inspect
+   call sites, or supplement empty/surprising results.
+
 | Agent intent | Tool | Expected use |
 |---|---|---|
 | Plan a new capability or API call | `capfind_context` | Blind-search reusable internal capabilities, external APIs, jar methods, and entry paths. |
@@ -61,6 +75,13 @@ capfind agent add mdm query endpoint --auto-index --fail-on-candidates --json
 Add this to project rules, custom instructions, or an agent skill:
 
 ```text
+When the user intent is to find an existing interface, capability, call chain,
+or reusable implementation, use capfind before text search. If this repository
+has .capfind/ or the capfind command is available, run capfind_doctor first,
+then call capfind_context with a short task description and limit 5. Use
+rg/git grep after capfind only to verify cited candidates, inspect call sites,
+or supplement empty/surprising results.
+
 Before implementing a backend endpoint, service method, DAO/repository method,
 RPC, integration call, or external-library wrapper, call capfind_context with a
 short task description and limit 5.
@@ -150,7 +171,10 @@ repository root for project-local indexing.
 Agents without MCP can still use capfind through shell commands:
 
 ```bash
+test -f .capfind/index.cfi && capfind stats
+capfind doctor --json
 capfind context "add mdm query endpoint" --limit 5
+capfind find "mdm query" --limit 5
 capfind diagnose-query "mdm query"
 capfind diagnose-file src/main/java/com/demo/MdmController.java
 capfind map --limit 200

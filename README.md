@@ -238,8 +238,15 @@ git push origin v0.3.0
 
 `capfind context` is the primary entrypoint for AI coding agents. It returns a low-token `capfind.context.v1` evidence packet with candidate type, entrypoint, callability, wrapper/external relationship, evidence, and confidence. Agents can blind-search by task intent without knowing package or module names first:
 
+当用户意图是“找现有接口 / 能力 / 调用链 / 可复用实现”时，Agent 应先检查 capfind：仓库存在 `.capfind/` 或 `capfind` 命令可用时，先跑 `capfind stats` / `capfind doctor`，再用 `capfind context` 或 `capfind find` 找候选；`rg` / `git grep` 放在后面做候选验证、调用点展开或空结果补查。
+
+When the user asks for an existing interface, capability, call chain, or reusable implementation, agents should check capfind first: if `.capfind/` exists or the `capfind` command is available, run `capfind stats` / `capfind doctor`, then use `capfind context` or `capfind find` for candidates. Use `rg` / `git grep` afterward for verification, call-site expansion, or empty-result supplementation.
+
 ```bash
+test -f .capfind/index.cfi && capfind stats
+capfind doctor --json
 capfind context add mdm query endpoint
+capfind find mdm query --limit 5
 capfind context use jackson object mapper --limit 5
 capfind mcp --call capfind_context --args '{"task":"use jackson object mapper","limit":5}'
 ```

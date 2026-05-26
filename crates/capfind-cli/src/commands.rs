@@ -499,9 +499,16 @@ fn generic_mcp_config(repo_root: &Path) -> Result<String> {
 }
 
 fn agent_rules_template() -> String {
-    r#"Before implementing a backend endpoint, service method, DAO/repository method, RPC,
-integration call, or external-library wrapper, call capfind_context with a short
-task description and limit 5.
+    r#"When the user intent is to find an existing interface, capability, call chain,
+or reusable implementation, use capfind before text search. If this repository
+has .capfind/ or the capfind command is available, run capfind_doctor first,
+then call capfind_context with a short task description and limit 5. Use
+rg/git grep after capfind only to verify cited candidates, inspect call sites,
+or supplement empty/surprising results.
+
+Before implementing a backend endpoint, service method, DAO/repository method,
+RPC, integration call, or external-library wrapper, call capfind_context with a
+short task description and limit 5.
 
 If capfind returns callable candidates, inspect the cited file:line or
 capfind_show output before writing code. Prefer calling the candidate directly,
@@ -542,7 +549,11 @@ capfind mcp --stdio
 ```
 
 Run it from the repository root above.
-"#,
+
+Suggested agent policy: for requests to find an existing interface, capability,
+call chain, or reusable implementation, call capfind_doctor and capfind_context
+before rg/git grep. Use text search afterward to verify file:line citations,
+inspect call sites, or supplement empty/surprising capfind results."#,
         repo_root
             .canonicalize()
             .unwrap_or_else(|_| repo_root.to_path_buf())
@@ -1835,7 +1846,7 @@ fn mcp_tools_json() -> serde_json::Value {
         "tools": [
             {
                 "name": "capfind_context",
-                "description": "Primary low-token AI context packet for blind capability/API discovery.",
+                "description": "Primary low-token AI context packet for blind capability/API discovery. Call before rg/git grep when the user asks for existing interfaces, call chains, reusable implementations, or available APIs.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
@@ -1852,7 +1863,7 @@ fn mcp_tools_json() -> serde_json::Value {
             },
             {
                 "name": "capfind_search",
-                "description": "Search indexed capabilities and referenced external APIs.",
+                "description": "Search indexed capabilities and referenced external APIs; use before text search for capability lookup, then verify with rg/git grep when needed.",
                 "input_schema": {
                     "type": "object",
                     "properties": {
@@ -1890,7 +1901,7 @@ fn mcp_tools_json() -> serde_json::Value {
             },
             {
                 "name": "capfind_doctor",
-                "description": "Return index/config/coverage/adoption diagnostics.",
+                "description": "Return index/config/coverage/adoption diagnostics. Use as preflight when .capfind exists or capfind is available before capability discovery.",
                 "input_schema": {"type": "object", "properties": {}}
             },
             {

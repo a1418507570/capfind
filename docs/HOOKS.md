@@ -15,6 +15,10 @@ Trigger before an agent creates one of these capabilities:
 - 新 DAO / repository 方法 / new DAO or repository method
 - 新 RPC / new RPC method
 
+当 Agent 只是要查找现有接口、能力、调用链或可复用实现时，也应把 capfind 放在文本检索前：先用 `capfind doctor --json` 观察索引覆盖，再用 `capfind context` / `capfind find` 找候选，最后才用 `rg` / `git grep` 验证候选或补查空结果。
+
+When an agent is only looking for an existing interface, capability, call chain, or reusable implementation, put capfind before text search too: use `capfind doctor --json` to check index coverage, then `capfind context` / `capfind find` for candidates, and only then use `rg` / `git grep` for verification or empty-result supplementation.
+
 ## 直接调用 / Direct call
 
 ```bash
@@ -111,6 +115,11 @@ capfind agent "$CAPFIND_TASK" --auto-index --json > capfind-agent.json
 If the current IDE or agent has no native hook, add this rule to project-level rules or custom instructions first:
 
 ```text
+When the task is to find an existing interface, capability, call chain, or reusable implementation, run capfind before rg/git grep:
+capfind doctor --json
+capfind context <short task description> --limit 5
+capfind find <short query> --limit 5
+
 Before creating a new endpoint, service, DAO, or RPC method, run:
 capfind agent <short task description> --auto-index --json
 If has_candidates is true, inspect the cited file:line results and prefer reuse or extension before writing new code.

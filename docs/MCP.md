@@ -162,6 +162,7 @@ Example:
 See [Agent / IDE Integration](./AGENT_INTEGRATION.md) for full setup templates, model rules, and non-MCP fallback commands.
 
 - IDE / Agent 可以先用 `capfind mcp --list-tools` 发现工具 schema。
+- 当用户意图是“找现有接口 / 能力 / 调用链 / 可复用实现”时，如果仓库存在 `.capfind/` 或 `capfind` 可用，先调用 `capfind_doctor`，再调用 `capfind_context` 或 `capfind_search`；`rg` / `git grep` 只作为候选验证、调用点展开或空结果补充。
 - 自动生成方案时优先调用 `capfind_context`。
 - 需要阻断重复业务能力时调用 `capfind_agent_preflight`。
 - 需要展开候选细节时调用 `capfind_show`。
@@ -176,6 +177,7 @@ See [Agent / IDE Integration](./AGENT_INTEGRATION.md) for full setup templates, 
 - 如果结果为空且不符合预期，调用 `capfind_doctor` 检查覆盖率。
 
 - IDEs / agents can use `capfind mcp --list-tools` to discover tool schemas.
+- When the user asks for an existing interface, capability, call chain, or reusable implementation, use capfind first when `.capfind/` exists or `capfind` is available: call `capfind_doctor`, then `capfind_context` or `capfind_search`; use `rg` / `git grep` afterward only for candidate verification, call-site inspection, or empty-result supplementation.
 - Prefer `capfind_context` while planning generated code.
 - Call `capfind_agent_preflight` when duplicate business capability blocking is needed.
 - Call `capfind_show` to inspect a candidate by id.
