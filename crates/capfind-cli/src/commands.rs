@@ -1304,8 +1304,9 @@ fn diagnose_query_json(
                 .iter()
                 .map(|term| {
                     json!({
-                        "term": term,
-                        "in_vocab": vocab_set.contains(term),
+                        "term": term.term,
+                        "weight": term.weight,
+                        "in_vocab": vocab_set.contains(term.term),
                     })
                 })
                 .collect::<Vec<_>>();
@@ -1323,9 +1324,12 @@ fn diagnose_query_json(
                 .iter()
                 .any(|synonym| vocab_set.contains(synonym))
         })
-        || synonyms::expand_phrases(query)
-            .iter()
-            .any(|expansion| expansion.terms.iter().any(|term| vocab_set.contains(term)));
+        || synonyms::expand_phrases(query).iter().any(|expansion| {
+            expansion
+                .terms
+                .iter()
+                .any(|term| vocab_set.contains(term.term))
+        });
 
     let raw_top = hits
         .iter()

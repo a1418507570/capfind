@@ -8,9 +8,19 @@ use once_cell::sync::Lazy;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy)]
+pub struct PhraseTerm {
+    pub term: &'static str,
+    pub weight: f32,
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct PhraseExpansion {
     pub phrase: &'static str,
-    pub terms: &'static [&'static str],
+    pub terms: &'static [PhraseTerm],
+}
+
+const fn phrase_term(term: &'static str, weight: f32) -> PhraseTerm {
+    PhraseTerm { term, weight }
 }
 
 /// The default synonym table.
@@ -37,61 +47,307 @@ static DEFAULT_SYNONYMS: Lazy<HashMap<&'static str, &'static [&'static str]>> = 
     m.insert("bulk", &["batch", "many"][..]);
     m.insert(
         "idcard",
-        &["identity", "id", "card", "cert", "certificate"][..],
+        &[
+            "identity",
+            "identityno",
+            "id",
+            "card",
+            "cert",
+            "certificate",
+        ][..],
     );
-    m.insert("identity", &["idcard", "id", "card"][..]);
+    m.insert("identity", &["idcard", "identityno", "id", "card"][..]);
     m.insert(
         "account",
-        &["acct", "accountno", "accountnumber", "accountname"][..],
+        &[
+            "acct",
+            "accountno",
+            "accountnumber",
+            "accountid",
+            "accountname",
+            "accountinfo",
+            "accountlist",
+            "relatedaccount",
+            "relatedaccountlist",
+        ][..],
     );
-    m.insert("name", &["username", "realname", "accountname"][..]);
+    m.insert(
+        "name",
+        &[
+            "username",
+            "realname",
+            "accountname",
+            "customername",
+            "enterprisename",
+            "personname",
+        ][..],
+    );
     m.insert(
         "legalperson",
-        &["legal", "person", "company", "corporation"][..],
+        &[
+            "legalpersonid",
+            "legalpersonidcard",
+            "legal",
+            "person",
+            "company",
+            "corporation",
+        ][..],
     );
     m
 });
 
-static DEFAULT_PHRASE_SYNONYMS: &[(&str, &[&str])] = &[
+static DEFAULT_PHRASE_SYNONYMS: &[(&str, &[PhraseTerm])] = &[
     (
         "查询",
-        &["query", "search", "find", "lookup", "fetch", "list"],
+        &[
+            phrase_term("query", 0.60),
+            phrase_term("search", 0.55),
+            phrase_term("find", 0.55),
+            phrase_term("lookup", 0.55),
+            phrase_term("fetch", 0.50),
+            phrase_term("list", 0.45),
+        ],
     ),
-    ("查找", &["query", "search", "find", "lookup"]),
-    ("获取", &["query", "search", "fetch", "lookup"]),
-    ("列表", &["list", "query", "search"]),
+    (
+        "查找",
+        &[
+            phrase_term("query", 0.45),
+            phrase_term("search", 0.50),
+            phrase_term("find", 0.60),
+            phrase_term("lookup", 0.55),
+        ],
+    ),
+    (
+        "获取",
+        &[
+            phrase_term("fetch", 0.55),
+            phrase_term("lookup", 0.50),
+            phrase_term("read", 0.50),
+            phrase_term("load", 0.50),
+            phrase_term("select", 0.50),
+            phrase_term("query", 0.30),
+            phrase_term("search", 0.30),
+        ],
+    ),
+    (
+        "列表",
+        &[
+            phrase_term("list", 0.65),
+            phrase_term("query", 0.45),
+            phrase_term("search", 0.40),
+        ],
+    ),
+    (
+        "法人身份证",
+        &[
+            phrase_term("legalpersonid", 0.90),
+            phrase_term("legalpersonidcard", 0.85),
+            phrase_term("identityno", 0.75),
+            phrase_term("legalperson", 0.60),
+            phrase_term("idcard", 0.45),
+        ],
+    ),
     (
         "法人",
-        &["legalperson", "legal", "person", "company", "corporation"],
+        &[
+            phrase_term("legalperson", 0.75),
+            phrase_term("legalpersonid", 0.70),
+            phrase_term("legal", 0.45),
+            phrase_term("person", 0.45),
+            phrase_term("company", 0.35),
+            phrase_term("corporation", 0.35),
+        ],
+    ),
+    (
+        "身份证号",
+        &[
+            phrase_term("identityno", 0.80),
+            phrase_term("idcard", 0.65),
+            phrase_term("identity", 0.55),
+            phrase_term("id", 0.35),
+        ],
     ),
     (
         "身份证",
-        &["idcard", "identity", "id", "card", "cert", "certificate"],
+        &[
+            phrase_term("idcard", 0.60),
+            phrase_term("identity", 0.45),
+            phrase_term("identityno", 0.55),
+            phrase_term("id", 0.30),
+            phrase_term("card", 0.25),
+            phrase_term("cert", 0.25),
+            phrase_term("certificate", 0.25),
+        ],
     ),
-    ("证件", &["idcard", "identity", "cert", "certificate"]),
+    (
+        "证件",
+        &[
+            phrase_term("idcard", 0.50),
+            phrase_term("identity", 0.45),
+            phrase_term("identityno", 0.50),
+            phrase_term("cert", 0.30),
+            phrase_term("certificate", 0.30),
+        ],
+    ),
+    (
+        "账号姓名",
+        &[
+            phrase_term("accountname", 0.85),
+            phrase_term("customername", 0.70),
+            phrase_term("enterprisename", 0.70),
+            phrase_term("account", 0.60),
+            phrase_term("name", 0.50),
+        ],
+    ),
     (
         "账号",
-        &["account", "acct", "accountno", "accountnumber", "accountid"],
+        &[
+            phrase_term("account", 0.75),
+            phrase_term("acct", 0.55),
+            phrase_term("accountno", 0.65),
+            phrase_term("accountnumber", 0.65),
+            phrase_term("accountid", 0.65),
+            phrase_term("accountname", 0.70),
+            phrase_term("accountinfo", 0.75),
+            phrase_term("accountlist", 0.75),
+            phrase_term("relatedaccount", 0.70),
+            phrase_term("relatedaccountlist", 0.70),
+        ],
     ),
     (
         "账户",
-        &["account", "acct", "accountno", "accountnumber", "accountid"],
+        &[
+            phrase_term("account", 0.75),
+            phrase_term("acct", 0.55),
+            phrase_term("accountno", 0.65),
+            phrase_term("accountnumber", 0.65),
+            phrase_term("accountid", 0.65),
+            phrase_term("accountname", 0.70),
+            phrase_term("accountinfo", 0.75),
+            phrase_term("accountlist", 0.75),
+            phrase_term("relatedaccount", 0.70),
+            phrase_term("relatedaccountlist", 0.70),
+        ],
+    ),
+    (
+        "账户信息",
+        &[
+            phrase_term("accountinfo", 0.85),
+            phrase_term("account", 0.75),
+            phrase_term("relatedaccount", 0.70),
+            phrase_term("relatedaccountlist", 0.70),
+        ],
     ),
     (
         "姓名",
-        &["name", "accountname", "username", "realname", "personname"],
+        &[
+            phrase_term("name", 0.55),
+            phrase_term("accountname", 0.80),
+            phrase_term("username", 0.45),
+            phrase_term("realname", 0.45),
+            phrase_term("personname", 0.60),
+            phrase_term("customername", 0.70),
+            phrase_term("enterprisename", 0.70),
+        ],
     ),
-    ("名称", &["name", "accountname", "username", "realname"]),
-    ("用户", &["user", "account", "member"]),
-    ("客户", &["customer", "client", "account"]),
-    ("手机", &["mobile", "phone", "telephone", "tel"]),
-    ("手机号", &["mobile", "phone", "telephone", "tel"]),
-    ("电话", &["phone", "telephone", "tel", "mobile"]),
-    ("地址", &["address", "addr"]),
-    ("订单", &["order"]),
-    ("机构", &["org", "organization", "institution"]),
-    ("企业", &["enterprise", "company", "corp", "corporation"]),
-    ("公司", &["company", "corp", "corporation"]),
+    (
+        "主体名称",
+        &[
+            phrase_term("subjectname", 0.85),
+            phrase_term("customername", 0.80),
+            phrase_term("enterprisename", 0.80),
+            phrase_term("companyname", 0.75),
+            phrase_term("accountname", 0.70),
+            phrase_term("name", 0.55),
+        ],
+    ),
+    (
+        "名称",
+        &[
+            phrase_term("name", 0.50),
+            phrase_term("accountname", 0.65),
+            phrase_term("username", 0.40),
+            phrase_term("realname", 0.40),
+            phrase_term("customername", 0.65),
+            phrase_term("enterprisename", 0.65),
+        ],
+    ),
+    (
+        "用户",
+        &[
+            phrase_term("user", 0.60),
+            phrase_term("account", 0.55),
+            phrase_term("member", 0.45),
+        ],
+    ),
+    (
+        "客户",
+        &[
+            phrase_term("customer", 0.70),
+            phrase_term("customername", 0.60),
+            phrase_term("client", 0.55),
+            phrase_term("account", 0.50),
+        ],
+    ),
+    (
+        "手机",
+        &[
+            phrase_term("mobile", 0.70),
+            phrase_term("phone", 0.65),
+            phrase_term("telephone", 0.55),
+            phrase_term("tel", 0.50),
+        ],
+    ),
+    (
+        "手机号",
+        &[
+            phrase_term("mobile", 0.75),
+            phrase_term("phone", 0.70),
+            phrase_term("telephone", 0.55),
+            phrase_term("tel", 0.50),
+        ],
+    ),
+    (
+        "电话",
+        &[
+            phrase_term("phone", 0.70),
+            phrase_term("telephone", 0.60),
+            phrase_term("tel", 0.55),
+            phrase_term("mobile", 0.55),
+        ],
+    ),
+    (
+        "地址",
+        &[phrase_term("address", 0.75), phrase_term("addr", 0.60)],
+    ),
+    ("订单", &[phrase_term("order", 0.75)]),
+    (
+        "机构",
+        &[
+            phrase_term("org", 0.65),
+            phrase_term("organization", 0.65),
+            phrase_term("institution", 0.55),
+        ],
+    ),
+    (
+        "企业",
+        &[
+            phrase_term("enterprise", 0.75),
+            phrase_term("enterprisename", 0.65),
+            phrase_term("company", 0.60),
+            phrase_term("corp", 0.55),
+            phrase_term("corporation", 0.55),
+        ],
+    ),
+    (
+        "公司",
+        &[
+            phrase_term("company", 0.70),
+            phrase_term("companyname", 0.65),
+            phrase_term("corp", 0.55),
+            phrase_term("corporation", 0.55),
+        ],
+    ),
 ];
 
 /// Weight applied to synonym-expanded terms (< 1.0 to not overpower originals).
@@ -139,17 +395,21 @@ mod tests {
     #[test]
     fn chinese_business_terms_expand_to_code_terms() {
         let expansions = expand_phrases("获取法人身份证账号姓名");
+        assert!(expansions.iter().any(|item| item.phrase == "法人"
+            && item.terms.iter().any(|term| term.term == "legalperson")));
         assert!(expansions
             .iter()
-            .any(|item| item.phrase == "法人" && item.terms.contains(&"legalperson")));
+            .any(|item| item.phrase == "身份证"
+                && item.terms.iter().any(|term| term.term == "idcard")));
         assert!(expansions
             .iter()
-            .any(|item| item.phrase == "身份证" && item.terms.contains(&"idcard")));
-        assert!(expansions
-            .iter()
-            .any(|item| item.phrase == "账号" && item.terms.contains(&"account")));
-        assert!(expansions
-            .iter()
-            .any(|item| item.phrase == "姓名" && item.terms.contains(&"accountname")));
+            .any(|item| item.phrase == "账号"
+                && item.terms.iter().any(|term| term.term == "account")));
+        assert!(expansions.iter().any(|item| item.phrase == "姓名"
+            && item.terms.iter().any(|term| term.term == "accountname")));
+        assert!(expansions.iter().any(|item| item.phrase == "法人身份证"
+            && item.terms.iter().any(|term| term.term == "legalpersonid")));
+        assert!(expansions.iter().any(|item| item.phrase == "账号姓名"
+            && item.terms.iter().any(|term| term.term == "customername")));
     }
 }

@@ -8,6 +8,13 @@ All notable changes are documented here. Chinese comes first, with English summa
 
 暂无。
 
+## [0.3.2] - 2026-05-26
+
+### 改进 / Changed
+
+- 优化中文业务 query 排序：短语扩展现在带权重，`获取` 对泛 `query/search` 的权重降低；“法人身份证 / 账号 / 账户信息 / 账号姓名 / 主体名称”会扩展到 `legalpersonid`、`identityno`、`accountinfo`、`accountlist`、`relatedaccount`、`accountname`、`customername`、`enterprisename` 等更贴近业务字段的代码词。
+- 当 query 同时表达“法人 + 账号/账户信息”时，包含账号和法人字段的 ServiceMethod / HttpEndpoint 会获得语义排序提升；OCR / 验真 / 校验类候选只有在 query 明确包含“识别 / OCR / 验真 / 校验 / 二要素”等意图时才保持高优先级。
+
 ## [0.3.1] - 2026-05-26
 
 ### 新增 / Added

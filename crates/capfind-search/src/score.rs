@@ -1,7 +1,7 @@
 //! BM25 scorer with field-weighted scoring, exact-match boosts, and layer boost.
 
 use capfind_core::{Capability, Field, Kind, Posting};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::synonyms;
 use crate::tokenize;
@@ -102,26 +102,28 @@ pub fn search(
 
     // Tokenize query + expand synonyms.
     let query_tokens = tokenize::tokenize(query);
-    let mut weighted_terms: Vec<(u32, f32)> = Vec::new(); // (term_id, weight)
+    let query_intent = QueryIntent::detect(query, &query_tokens);
+    let mut weighted_term_map: HashMap<u32, f32> = HashMap::new(); // term_id -> strongest weight
 
     for token in &query_tokens {
         if let Some(&tid) = vocab_map.get(token.as_str()) {
-            weighted_terms.push((tid, 1.0));
+            add_weighted_term(&mut weighted_term_map, tid, 1.0);
         }
         // Synonym expansion.
         for &syn in synonyms::expand(token) {
             if let Some(&tid) = vocab_map.get(syn) {
-                weighted_terms.push((tid, synonyms::SYNONYM_WEIGHT));
+                add_weighted_term(&mut weighted_term_map, tid, synonyms::SYNONYM_WEIGHT);
             }
         }
     }
     for expansion in synonyms::expand_phrases(query) {
-        for &term in expansion.terms {
-            if let Some(&tid) = vocab_map.get(term) {
-                weighted_terms.push((tid, synonyms::SYNONYM_WEIGHT));
+        for term in expansion.terms {
+            if let Some(&tid) = vocab_map.get(term.term) {
+                add_weighted_term(&mut weighted_term_map, tid, term.weight);
             }
         }
     }
+    let weighted_terms: Vec<(u32, f32)> = weighted_term_map.into_iter().collect();
 
     if weighted_terms.is_empty() {
         return vec![];
@@ -153,7 +155,7 @@ pub fn search(
         // IDF: log((N - df + 0.5) / (df + 0.5) + 1)
         // df = number of DISTINCT capabilities that contain this term (not total postings).
         let df = {
-            let mut seen = std::collections::HashSet::new();
+            let mut seen = HashSet::new();
             for p in posts {
                 seen.insert(p.cap_id);
             }
@@ -222,8 +224,7 @@ pub fn search(
 
         // All-terms-present boost.
         if query_tokens.len() > 1 {
-            let cap_terms_set: std::collections::HashSet<u32> =
-                cap.terms.iter().map(|t| t.term_id).collect();
+            let cap_terms_set: HashSet<u32> = cap.terms.iter().map(|t| t.term_id).collect();
             let all_present = weighted_terms
                 .iter()
                 .filter(|(_, w)| *w >= 1.0) // only original terms, not synonyms
@@ -233,6 +234,8 @@ pub fn search(
                 boost_log.push(("all-terms", 1.2));
             }
         }
+
+        apply_semantic_intent_boosts(&query_intent, cap, vocab, &mut scores[i], &mut boost_log);
 
         if explain {
             term_details[i].sort_by(|a, b| b.weight.partial_cmp(&a.weight).unwrap());
@@ -267,6 +270,203 @@ pub fn search(
             },
         })
         .collect()
+}
+
+fn add_weighted_term(weighted_terms: &mut HashMap<u32, f32>, tid: u32, weight: f32) {
+    weighted_terms
+        .entry(tid)
+        .and_modify(|existing| {
+            if weight > *existing {
+                *existing = weight;
+            }
+        })
+        .or_insert(weight);
+}
+
+#[derive(Debug, Default)]
+struct QueryIntent {
+    wants_account_identity: bool,
+    wants_capability_lookup: bool,
+    explicit_ocr_or_verification: bool,
+}
+
+impl QueryIntent {
+    fn detect(query: &str, query_tokens: &[String]) -> Self {
+        let normalized = query
+            .chars()
+            .filter(|ch| !ch.is_whitespace())
+            .collect::<String>();
+        let lower = query.to_ascii_lowercase();
+        let has_account = contains_any(
+            &normalized,
+            &["账号", "账户", "账户信息", "账号姓名", "主体名称"],
+        ) || token_contains_any(
+            query_tokens,
+            &[
+                "account",
+                "accountname",
+                "accountinfo",
+                "accountlist",
+                "relatedaccount",
+            ],
+        );
+        let has_legal_or_subject = contains_any(&normalized, &["法人", "主体", "企业", "公司"])
+            || token_contains_any(
+                query_tokens,
+                &["legalperson", "legalpersonid", "enterprise", "company"],
+            );
+        let has_identity = contains_any(&normalized, &["身份证", "身份证号", "证件"])
+            || token_contains_any(query_tokens, &["idcard", "identity", "identityno"]);
+        let has_name = contains_any(&normalized, &["姓名", "名称", "主体名称"])
+            || token_contains_any(
+                query_tokens,
+                &["name", "accountname", "customername", "enterprisename"],
+            );
+        let wants_capability_lookup =
+            contains_any(
+                &normalized,
+                &[
+                    "现有代码",
+                    "现有接口",
+                    "可支持",
+                    "支持的接口",
+                    "可复用",
+                    "复用",
+                    "接口",
+                    "能力",
+                ],
+            ) || token_contains_any(query_tokens, &["api", "endpoint", "capability", "reuse"]);
+        let explicit_ocr_or_verification = contains_any(
+            &normalized,
+            &["识别", "验真", "校验", "核验", "二要素", "认证", "ocr"],
+        ) || contains_any(
+            &lower,
+            &[
+                "ocr",
+                "verify",
+                "verification",
+                "validate",
+                "validation",
+                "authenticate",
+                "authentication",
+            ],
+        );
+
+        Self {
+            wants_account_identity: has_account
+                && (has_legal_or_subject || has_identity || has_name),
+            wants_capability_lookup,
+            explicit_ocr_or_verification,
+        }
+    }
+}
+
+fn apply_semantic_intent_boosts(
+    intent: &QueryIntent,
+    cap: &Capability,
+    vocab: &[String],
+    score: &mut f32,
+    boost_log: &mut Vec<(&'static str, f32)>,
+) {
+    if !intent.wants_account_identity {
+        return;
+    }
+
+    let terms = capability_term_set(cap, vocab);
+    let has_account = term_set_contains_any(
+        &terms,
+        &[
+            "account",
+            "acct",
+            "accountno",
+            "accountnumber",
+            "accountid",
+            "accountname",
+            "accountinfo",
+            "accountlist",
+            "relatedaccount",
+            "relatedaccountlist",
+        ],
+    );
+    let has_legal = term_set_contains_any(
+        &terms,
+        &[
+            "legalperson",
+            "legalpersonid",
+            "legalpersonidcard",
+            "legal",
+            "person",
+        ],
+    );
+    let has_name = term_set_contains_any(
+        &terms,
+        &[
+            "name",
+            "accountname",
+            "customername",
+            "enterprisename",
+            "companyname",
+            "personname",
+            "subjectname",
+        ],
+    );
+    let has_ocr_or_verify = term_set_contains_any(
+        &terms,
+        &[
+            "ocr",
+            "verify",
+            "verification",
+            "validate",
+            "validation",
+            "authenticate",
+            "authentication",
+            "certification",
+        ],
+    );
+
+    if has_account && has_legal {
+        *score *= 1.55;
+        boost_log.push(("account-legal-intent", 1.55));
+    } else if has_account {
+        *score *= 1.25;
+        boost_log.push(("account-intent", 1.25));
+    }
+
+    if has_account && has_name {
+        *score *= 1.15;
+        boost_log.push(("account-name-intent", 1.15));
+    }
+
+    if intent.wants_capability_lookup && matches!(cap.kind, Kind::ServiceMethod) && has_account {
+        *score *= 1.25;
+        boost_log.push(("service-reuse-intent", 1.25));
+    }
+
+    if !intent.explicit_ocr_or_verification && has_ocr_or_verify && !has_account {
+        *score *= 0.55;
+        boost_log.push(("ocr-verify-demotion", 0.55));
+    }
+}
+
+fn capability_term_set<'a>(cap: &Capability, vocab: &'a [String]) -> HashSet<&'a str> {
+    cap.terms
+        .iter()
+        .filter_map(|term| vocab.get(term.term_id as usize).map(String::as_str))
+        .collect()
+}
+
+fn term_set_contains_any(terms: &HashSet<&str>, needles: &[&str]) -> bool {
+    needles.iter().any(|needle| terms.contains(needle))
+}
+
+fn token_contains_any(tokens: &[String], needles: &[&str]) -> bool {
+    tokens
+        .iter()
+        .any(|token| needles.iter().any(|needle| token == needle))
+}
+
+fn contains_any(haystack: &str, needles: &[&str]) -> bool {
+    needles.iter().any(|needle| haystack.contains(needle))
 }
 
 #[cfg(test)]
@@ -490,6 +690,123 @@ mod tests {
         (caps, postings, vocab, avgdl)
     }
 
+    fn build_index_from_caps(
+        mut caps: Vec<Capability>,
+    ) -> (
+        Vec<Capability>,
+        HashMap<u32, Vec<Posting>>,
+        Vec<String>,
+        f32,
+    ) {
+        let mut vocab: Vec<String> = Vec::new();
+        let mut vocab_map: HashMap<String, u32> = HashMap::new();
+        let mut postings: HashMap<u32, Vec<Posting>> = HashMap::default();
+
+        for (i, cap) in caps.iter_mut().enumerate() {
+            cap.id = i as u32;
+            let field_tokens: Vec<(Field, Vec<String>)> = vec![
+                (
+                    Field::HttpPath,
+                    cap.http
+                        .as_ref()
+                        .map(|h| tokenize::tokenize_path(&h.path))
+                        .unwrap_or_default(),
+                ),
+                (
+                    Field::ClassName,
+                    cap.class
+                        .as_ref()
+                        .map(|class| tokenize::tokenize(class))
+                        .unwrap_or_default(),
+                ),
+                (Field::MethodName, tokenize::tokenize(&cap.method)),
+                (
+                    Field::AnnotationValue,
+                    cap.annotations
+                        .iter()
+                        .chain(cap.tags.iter())
+                        .flat_map(|value| tokenize::tokenize(value))
+                        .collect(),
+                ),
+                (
+                    Field::Doc,
+                    cap.doc
+                        .as_ref()
+                        .map(|doc| tokenize::tokenize(doc))
+                        .unwrap_or_default(),
+                ),
+                (Field::PackageModule, {
+                    let mut tokens = tokenize::tokenize(&cap.package);
+                    tokens.extend(tokenize::tokenize(&cap.module));
+                    tokens
+                }),
+            ];
+
+            let mut terms = Vec::new();
+            for (field, tokens) in field_tokens {
+                let mut tf_map: HashMap<String, u16> = HashMap::default();
+                for token in tokens {
+                    *tf_map.entry(token).or_default() += 1;
+                }
+                for (token, tf) in tf_map {
+                    let tid = *vocab_map.entry(token.clone()).or_insert_with(|| {
+                        let id = vocab.len() as u32;
+                        vocab.push(token);
+                        id
+                    });
+                    terms.push(TermRef {
+                        term_id: tid,
+                        field,
+                        tf,
+                    });
+                    postings.entry(tid).or_default().push(Posting {
+                        cap_id: cap.id,
+                        field,
+                        tf,
+                    });
+                }
+            }
+            cap.terms = terms;
+        }
+
+        let avgdl = caps.iter().map(|cap| cap.terms.len() as f32).sum::<f32>() / caps.len() as f32;
+        (caps, postings, vocab, avgdl)
+    }
+
+    fn java_capability(
+        kind: Kind,
+        class: &str,
+        method: &str,
+        signature: &str,
+        http: Option<(&str, &str)>,
+        doc: Option<&str>,
+    ) -> Capability {
+        Capability {
+            id: 0,
+            kind,
+            lang: Lang::Java,
+            module: String::new(),
+            package: "com.demo".into(),
+            class: Some(class.into()),
+            method: method.into(),
+            signature: signature.into(),
+            annotations: vec![],
+            http: http.map(|(method, path)| HttpInfo {
+                method: method.into(),
+                path: path.into(),
+                consumes: None,
+                produces: None,
+            }),
+            rpc: None,
+            doc: doc.map(str::to_string),
+            tags: vec![],
+            file: format!("{class}.java"),
+            line: 1,
+            byte_range: (0, 80),
+            terms: vec![],
+        }
+    }
+
     #[test]
     fn mdm_query_ranks_first() {
         let (caps, postings, vocab, avgdl) = make_test_index();
@@ -550,6 +867,98 @@ mod tests {
             .term_hits
             .iter()
             .any(|hit| hit.term == "accountname" && hit.is_synonym));
+    }
+
+    #[test]
+    fn account_legal_person_intent_ranks_account_chain_over_ocr() {
+        let (caps, postings, vocab, avgdl) = build_index_from_caps(vec![
+            java_capability(
+                Kind::HttpEndpoint,
+                "IdCardController",
+                "idCardOcrAndVerify",
+                "IdCardVerifyResponse idCardOcrAndVerify(IdCardImageRequest request)",
+                Some(("GET", "/idCard/idCardOcrAndVerify")),
+                None,
+            ),
+            java_capability(
+                Kind::HttpEndpoint,
+                "IdCardController",
+                "verifyNameAndNo",
+                "VerifyResponse verifyNameAndNo(IdCardVerifyRequest request)",
+                Some(("GET", "/idCard/verifyNameAndNo")),
+                None,
+            ),
+            java_capability(
+                Kind::ServiceMethod,
+                "CustomerServiceWrapper",
+                "selectAccountListByLegalPersonId",
+                "List<AccountInfo> selectAccountListByLegalPersonId(String legalPersonId)",
+                None,
+                Some("returns AccountInfo legalPersonId accountName relatedAccountList"),
+            ),
+            java_capability(
+                Kind::ServiceMethod,
+                "AsyncCallService",
+                "getLegalPersonIdAsync",
+                "CompletableFuture<String> getLegalPersonIdAsync(AccountInfo accountInfo)",
+                None,
+                Some("loads legalPersonId accountName"),
+            ),
+            java_capability(
+                Kind::HttpEndpoint,
+                "CheckToolController",
+                "getLogs",
+                "List<AccountInfo> getLogs(AccountInfo query)",
+                Some(("GET", "/checkTool/v1/getLogs")),
+                Some("AccountInfo legalPersonId accountName relatedAccountList"),
+            ),
+        ]);
+        let hits = search(
+            "从现有代码里找到可支持的接口 获取法人身份证 账号 姓名",
+            &caps,
+            &postings,
+            &vocab,
+            avgdl,
+            &ScorerConfig::default(),
+            10,
+            true,
+        );
+
+        assert!(!hits.is_empty());
+        assert_eq!(
+            caps[hits[0].cap_id as usize].method,
+            "selectAccountListByLegalPersonId"
+        );
+        let account_rank = hits
+            .iter()
+            .position(|hit| caps[hit.cap_id as usize].method == "selectAccountListByLegalPersonId")
+            .unwrap();
+        let ocr_rank = hits
+            .iter()
+            .position(|hit| caps[hit.cap_id as usize].method == "idCardOcrAndVerify")
+            .unwrap();
+        let verify_rank = hits
+            .iter()
+            .position(|hit| caps[hit.cap_id as usize].method == "verifyNameAndNo")
+            .unwrap();
+        assert!(account_rank < ocr_rank);
+        assert!(account_rank < verify_rank);
+
+        let account_explain = hits[account_rank].explain.as_ref().unwrap();
+        assert!(account_explain
+            .boosts
+            .iter()
+            .any(|(name, _)| *name == "account-legal-intent"));
+        assert!(account_explain
+            .boosts
+            .iter()
+            .any(|(name, _)| *name == "service-reuse-intent"));
+
+        let ocr_explain = hits[ocr_rank].explain.as_ref().unwrap();
+        assert!(ocr_explain
+            .boosts
+            .iter()
+            .any(|(name, _)| *name == "ocr-verify-demotion"));
     }
 
     #[test]

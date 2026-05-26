@@ -59,8 +59,12 @@ or reusable implementation, treat capfind as the first search preflight:
 
 Chinese business terms are expanded at search time into common code-field
 tokens. For example, "获取法人身份证账号姓名" can match identifiers such as
-`legalPerson`, `idCard`, and `accountName` without the agent knowing those code
-terms first. When project-specific Chinese terms still miss, call
+`legalPerson`, `legalPersonId`, `identityNo`, `accountInfo`, `accountList`,
+`relatedAccount`, and `accountName` without the agent knowing those code terms
+first. Account/legal-person queries prioritize account-information candidates;
+OCR / verification candidates stay high priority only when the query explicitly
+asks for OCR, recognition, verification, validation, or two-factor checks. When
+project-specific Chinese terms still miss, call
 `capfind_diagnose_query` and retry with class, method, path, or field terms from
 the local codebase.
 

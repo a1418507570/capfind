@@ -369,6 +369,73 @@ public class LegalPersonController {
 }
 "#;
 
+const ID_CARD_CONTROLLER: &str = r#"
+package com.demo;
+
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/idCard")
+public class IdCardController {
+    @GetMapping("/idCardOcrAndVerify")
+    public IdCardVerifyResponse idCardOcrAndVerify(IdCardImageRequest request) {
+        return null;
+    }
+
+    @GetMapping("/verifyNameAndNo")
+    public VerifyResponse verifyNameAndNo(IdCardVerifyRequest request) {
+        return null;
+    }
+}
+"#;
+
+const CUSTOMER_SERVICE_WRAPPER: &str = r#"
+package com.demo;
+
+import java.util.List;
+import org.springframework.stereotype.Service;
+
+@Service
+public class CustomerServiceWrapper {
+    /** Returns AccountInfo fields such as legalPersonId, accountName, and relatedAccountList. */
+    public List<AccountInfo> selectAccountListByLegalPersonId(String legalPersonId) {
+        return null;
+    }
+}
+"#;
+
+const ASYNC_CALL_SERVICE: &str = r#"
+package com.demo;
+
+import java.util.concurrent.CompletableFuture;
+import org.springframework.stereotype.Service;
+
+@Service
+public class AsyncCallService {
+    /** Loads legalPersonId and accountName from account context. */
+    public CompletableFuture<String> getLegalPersonIdAsync(AccountInfo accountInfo) {
+        return null;
+    }
+}
+"#;
+
+const CHECK_TOOL_CONTROLLER: &str = r#"
+package com.demo;
+
+import java.util.List;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/checkTool/v1")
+public class CheckToolController {
+    /** Returns AccountInfo logs with legalPersonId, accountName, and relatedAccountList. */
+    @GetMapping("/getLogs")
+    public List<AccountInfo> getLogs(AccountInfo query) {
+        return null;
+    }
+}
+"#;
+
 const VENDOR_CLIENT_API_SOURCE: &str = r#"
 package com.vendor;
 
@@ -604,6 +671,30 @@ fn index_find_show_stats_work_end_to_end() {
         LEGAL_PERSON_CONTROLLER,
     )
     .unwrap();
+    fs::write(
+        dir.path()
+            .join("src/main/java/com/demo/IdCardController.java"),
+        ID_CARD_CONTROLLER,
+    )
+    .unwrap();
+    fs::write(
+        dir.path()
+            .join("src/main/java/com/demo/CustomerServiceWrapper.java"),
+        CUSTOMER_SERVICE_WRAPPER,
+    )
+    .unwrap();
+    fs::write(
+        dir.path()
+            .join("src/main/java/com/demo/AsyncCallService.java"),
+        ASYNC_CALL_SERVICE,
+    )
+    .unwrap();
+    fs::write(
+        dir.path()
+            .join("src/main/java/com/demo/CheckToolController.java"),
+        CHECK_TOOL_CONTROLLER,
+    )
+    .unwrap();
 
     capfind()
         .current_dir(dir.path())
@@ -726,6 +817,36 @@ tags = ["agent-facing"]
         .unwrap()
         .iter()
         .any(|expansion| expansion["phrase"] == "法人"));
+
+    let account_agent = capfind()
+        .current_dir(dir.path())
+        .args([
+            "agent",
+            "从现有代码里找到可支持的接口",
+            "获取法人身份证",
+            "账号",
+            "姓名",
+            "--limit",
+            "8",
+            "--json",
+        ])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let account_agent_json: Value = serde_json::from_slice(&account_agent).unwrap();
+    let account_candidates = account_agent_json["candidates"].as_array().unwrap();
+    let rank = |method: &str| {
+        account_candidates
+            .iter()
+            .position(|candidate| candidate["method"] == method)
+    };
+    let account_rank = rank("selectAccountListByLegalPersonId").unwrap();
+    assert!(rank("getLegalPersonIdAsync").is_some());
+    assert!(rank("getLogs").is_some());
+    assert!(account_rank < rank("idCardOcrAndVerify").unwrap());
+    assert!(account_rank < rank("verifyNameAndNo").unwrap());
 
     let go_find = capfind()
         .current_dir(dir.path())

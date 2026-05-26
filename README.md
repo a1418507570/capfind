@@ -89,9 +89,9 @@ methods, and service registry / SLO metadata.
 
 ## 安装 / Install
 
-> 当前公开 release 为 v0.3.1，可用同一安装脚本指定版本安装。
+> 当前公开 release 为 v0.3.2，可用同一安装脚本指定版本安装。
 >
-> The current public release is v0.3.1 and can be installed with the same script.
+> The current public release is v0.3.2 and can be installed with the same script.
 >
 > 如果 GitHub Release 元数据或资产暂不可用，安装脚本会在本机存在 `cargo` 时回退到 `cargo install --git`。
 >
@@ -102,7 +102,7 @@ methods, and service registry / SLO metadata.
 curl -fsSL https://raw.githubusercontent.com/a1418507570/capfind/main/scripts/install.sh | sh
 
 # 安装指定版本 / install a specific version
-CAPFIND_VERSION=v0.3.1 sh -c "$(curl -fsSL https://raw.githubusercontent.com/a1418507570/capfind/main/scripts/install.sh)"
+CAPFIND_VERSION=v0.3.2 sh -c "$(curl -fsSL https://raw.githubusercontent.com/a1418507570/capfind/main/scripts/install.sh)"
 
 # 自定义安装目录 / custom install directory
 CAPFIND_INSTALL_DIR="$HOME/bin" sh -c "$(curl -fsSL https://raw.githubusercontent.com/a1418507570/capfind/main/scripts/install.sh)"
@@ -228,8 +228,8 @@ ls target/dist/
 Multi-platform release is handled by the GitHub Actions Release workflow. Pushing a `v*` tag builds Linux/macOS packages, uploads workflow artifacts, and creates a GitHub Release:
 
 ```bash
-git tag v0.3.1
-git push origin v0.3.1
+git tag v0.3.2
+git push origin v0.3.2
 ```
 
 ## Agent 上下文 / Agent context
@@ -252,9 +252,9 @@ capfind context use jackson object mapper --limit 5
 capfind mcp --call capfind_context --args '{"task":"use jackson object mapper","limit":5}'
 ```
 
-中文业务 query 会在搜索侧确定性扩展为常见代码字段词，例如“法人 / 身份证 / 账号 / 姓名”会辅助匹配 `legalPerson`、`idCard`、`accountName` 等 identifier token。项目专有词仍建议写成代码里真实出现的类名、方法名、路径片段或字段名。
+中文业务 query 会在搜索侧确定性扩展为常见代码字段词，例如“法人 / 身份证 / 账号 / 姓名”会辅助匹配 `legalPerson`、`legalPersonId`、`identityNo`、`accountInfo`、`accountList`、`relatedAccount`、`accountName` 等 identifier token。账号/法人类 query 会优先提升账号信息链路；OCR / 验真 / 校验类接口只有在 query 明确包含对应意图时才保持高优先级。项目专有词仍建议写成代码里真实出现的类名、方法名、路径片段或字段名。
 
-Chinese business queries are deterministically expanded at search time into common code-field terms. For example, terms like legal person, ID card, account, and name help match identifier tokens such as `legalPerson`, `idCard`, and `accountName`. For project-specific vocabulary, prefer terms that actually appear in class names, methods, paths, or fields.
+Chinese business queries are deterministically expanded at search time into common code-field terms. For example, terms like legal person, ID card, account, and name help match identifier tokens such as `legalPerson`, `legalPersonId`, `identityNo`, `accountInfo`, `accountList`, `relatedAccount`, and `accountName`. Account/legal-person queries prioritize account-information paths; OCR / verification candidates stay high priority only when that intent is explicit. For project-specific vocabulary, prefer terms that actually appear in class names, methods, paths, or fields.
 
 `capfind agent` 仍保留为兼容 Hook / IDE Hook 的前置检查入口：
 
@@ -338,9 +338,9 @@ See [ROADMAP](./docs/ROADMAP.md) for the detailed plan and [CHANGELOG](./CHANGEL
 
 ## 状态 / Status
 
-v0.3.1 已发布。`capfind` 当前支持低 token context、服务地图、诊断、黄金评测、本地 dashboard、product config、MCP auto-index、中文业务 query 扩展和 release 安装 smoke。
+v0.3.2 已发布。`capfind` 当前支持低 token context、服务地图、诊断、黄金评测、本地 dashboard、product config、MCP auto-index、中文业务 query 扩展和中文账号/法人排序优化。
 
-v0.3.1 has been released. `capfind` now supports low-token context, service maps, diagnosis, golden evals, local dashboard output, product config, MCP auto-index, Chinese business-query expansion, and release install smoke coverage.
+v0.3.2 has been released. `capfind` now supports low-token context, service maps, diagnosis, golden evals, local dashboard output, product config, MCP auto-index, Chinese business-query expansion, and Chinese account/legal-person ranking refinement.
 
 ## 许可证 / License
 
