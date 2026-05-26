@@ -11,7 +11,7 @@ members = [
 exclude = ["crates/capfind-mcp"]
 
 [workspace.package]
-version      = "0.3.0"
+version      = "0.3.1"
 edition      = "2021"
 rust-version = "1.80"
 authors      = ["capfind contributors"]
@@ -60,9 +60,9 @@ tempfile           = "3"
 pretty_assertions  = "1"
 
 # ─── local ────────────────────────────────────────────────────────
-capfind-core       = { path = "crates/capfind-core",    version = "0.3.0" }
-capfind-parsers    = { path = "crates/capfind-parsers", version = "0.3.0" }
-capfind-search     = { path = "crates/capfind-search",  version = "0.3.0" }
+capfind-core       = { path = "crates/capfind-core",    version = "0.3.1" }
+capfind-parsers    = { path = "crates/capfind-parsers", version = "0.3.1" }
+capfind-search     = { path = "crates/capfind-search",  version = "0.3.1" }
 
 [profile.release]
 lto           = "thin"

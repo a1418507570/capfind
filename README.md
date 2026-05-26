@@ -89,9 +89,9 @@ methods, and service registry / SLO metadata.
 
 ## 安装 / Install
 
-> 当前公开 release 为 v0.3.0，可用同一安装脚本指定版本安装。
+> 当前公开 release 为 v0.3.1，可用同一安装脚本指定版本安装。
 >
-> The current public release is v0.3.0 and can be installed with the same script.
+> The current public release is v0.3.1 and can be installed with the same script.
 >
 > 如果 GitHub Release 元数据或资产暂不可用，安装脚本会在本机存在 `cargo` 时回退到 `cargo install --git`。
 >
@@ -102,7 +102,7 @@ methods, and service registry / SLO metadata.
 curl -fsSL https://raw.githubusercontent.com/a1418507570/capfind/main/scripts/install.sh | sh
 
 # 安装指定版本 / install a specific version
-CAPFIND_VERSION=v0.3.0 sh -c "$(curl -fsSL https://raw.githubusercontent.com/a1418507570/capfind/main/scripts/install.sh)"
+CAPFIND_VERSION=v0.3.1 sh -c "$(curl -fsSL https://raw.githubusercontent.com/a1418507570/capfind/main/scripts/install.sh)"
 
 # 自定义安装目录 / custom install directory
 CAPFIND_INSTALL_DIR="$HOME/bin" sh -c "$(curl -fsSL https://raw.githubusercontent.com/a1418507570/capfind/main/scripts/install.sh)"
@@ -228,8 +228,8 @@ ls target/dist/
 Multi-platform release is handled by the GitHub Actions Release workflow. Pushing a `v*` tag builds Linux/macOS packages, uploads workflow artifacts, and creates a GitHub Release:
 
 ```bash
-git tag v0.3.0
-git push origin v0.3.0
+git tag v0.3.1
+git push origin v0.3.1
 ```
 
 ## Agent 上下文 / Agent context
@@ -338,9 +338,9 @@ See [ROADMAP](./docs/ROADMAP.md) for the detailed plan and [CHANGELOG](./CHANGEL
 
 ## 状态 / Status
 
-v0.3.0 已发布。`capfind` 当前支持低 token context、服务地图、诊断、黄金评测、本地 dashboard、product config、MCP auto-index 和 release 安装 smoke。
+v0.3.1 已发布。`capfind` 当前支持低 token context、服务地图、诊断、黄金评测、本地 dashboard、product config、MCP auto-index、中文业务 query 扩展和 release 安装 smoke。
 
-v0.3.0 has been released. `capfind` now supports low-token context, service maps, diagnosis, golden evals, local dashboard output, product config, MCP auto-index, and release install smoke coverage.
+v0.3.1 has been released. `capfind` now supports low-token context, service maps, diagnosis, golden evals, local dashboard output, product config, MCP auto-index, Chinese business-query expansion, and release install smoke coverage.
 
 ## 许可证 / License
 
