@@ -1296,6 +1296,36 @@ fn diagnose_query_json(
             })
         })
         .collect::<Vec<_>>();
+    let phrase_expansions = synonyms::expand_phrases(query)
+        .iter()
+        .map(|expansion| {
+            let terms = expansion
+                .terms
+                .iter()
+                .map(|term| {
+                    json!({
+                        "term": term,
+                        "in_vocab": vocab_set.contains(term),
+                    })
+                })
+                .collect::<Vec<_>>();
+            json!({
+                "phrase": expansion.phrase,
+                "terms": terms,
+            })
+        })
+        .collect::<Vec<_>>();
+    let has_query_vocab_signal = query_tokens
+        .iter()
+        .any(|token| vocab_set.contains(token.as_str()))
+        || query_tokens.iter().any(|token| {
+            synonyms::expand(token)
+                .iter()
+                .any(|synonym| vocab_set.contains(synonym))
+        })
+        || synonyms::expand_phrases(query)
+            .iter()
+            .any(|expansion| expansion.terms.iter().any(|term| vocab_set.contains(term)));
 
     let raw_top = hits
         .iter()
@@ -1316,7 +1346,7 @@ fn diagnose_query_json(
         &hits,
         &filtered,
         &query_tokens,
-        &vocab_set,
+        has_query_vocab_signal,
         filter_loss,
         lang,
         kind,
@@ -1342,6 +1372,7 @@ fn diagnose_query_json(
             "path": path,
         },
         "tokens": token_diagnostics,
+        "phrase_expansions": phrase_expansions,
         "result_counts": {
             "raw_hits": hits.len(),
             "filtered_hits": filtered.len(),
@@ -1427,7 +1458,7 @@ fn query_diagnosis(
     hits: &[Hit],
     filtered: &[&Hit],
     query_tokens: &[String],
-    vocab_set: &BTreeSet<&str>,
+    has_query_vocab_signal: bool,
     filter_loss: usize,
     lang: &Option<LangFilter>,
     kind: &Option<KindFilter>,
@@ -1437,10 +1468,7 @@ fn query_diagnosis(
         "empty_index"
     } else if query_tokens.is_empty() {
         "query_has_no_indexable_tokens"
-    } else if query_tokens
-        .iter()
-        .all(|token| !vocab_set.contains(token.as_str()))
-    {
+    } else if !has_query_vocab_signal {
         "query_terms_not_in_vocab"
     } else if hits.is_empty() {
         "terms_exist_but_no_postings_scored"

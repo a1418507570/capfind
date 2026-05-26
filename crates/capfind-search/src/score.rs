@@ -115,6 +115,13 @@ pub fn search(
             }
         }
     }
+    for expansion in synonyms::expand_phrases(query) {
+        for &term in expansion.terms {
+            if let Some(&tid) = vocab_map.get(term) {
+                weighted_terms.push((tid, synonyms::SYNONYM_WEIGHT));
+            }
+        }
+    }
 
     if weighted_terms.is_empty() {
         return vec![];
@@ -281,6 +288,13 @@ mod tests {
             "asset".into(),
             "controller".into(),
             "detail".into(),
+            "legalperson".into(),
+            "legal".into(),
+            "person".into(),
+            "idcard".into(),
+            "accountname".into(),
+            "account".into(),
+            "name".into(),
         ];
 
         // Cap 0: POST /mdm/query  — should rank #1 for "mdm query"
@@ -387,7 +401,78 @@ mod tests {
             ],
         };
 
-        let caps = vec![cap0, cap1];
+        let cap2 = Capability {
+            id: 2,
+            kind: Kind::HttpEndpoint,
+            lang: Lang::Java,
+            module: String::new(),
+            package: "com.demo".into(),
+            class: Some("LegalPersonController".into()),
+            method: "getLegalPersonIdCardAccountName".into(),
+            signature: "LegalPersonAccountNameResponse getLegalPersonIdCardAccountName(LegalPersonIdCardQuery request)".into(),
+            annotations: vec![],
+            http: Some(HttpInfo {
+                method: "GET".into(),
+                path: "/legal-person/id-card/account-name".into(),
+                consumes: None,
+                produces: None,
+            }),
+            rpc: None,
+            doc: None,
+            tags: vec![],
+            file: "LegalPersonController.java".into(),
+            line: 30,
+            byte_range: (0, 80),
+            terms: vec![
+                TermRef {
+                    term_id: 5,
+                    field: Field::HttpPath,
+                    tf: 1,
+                },
+                TermRef {
+                    term_id: 8,
+                    field: Field::HttpPath,
+                    tf: 1,
+                },
+                TermRef {
+                    term_id: 9,
+                    field: Field::HttpPath,
+                    tf: 1,
+                },
+                TermRef {
+                    term_id: 5,
+                    field: Field::ClassName,
+                    tf: 1,
+                },
+                TermRef {
+                    term_id: 6,
+                    field: Field::MethodName,
+                    tf: 1,
+                },
+                TermRef {
+                    term_id: 7,
+                    field: Field::MethodName,
+                    tf: 1,
+                },
+                TermRef {
+                    term_id: 8,
+                    field: Field::MethodName,
+                    tf: 1,
+                },
+                TermRef {
+                    term_id: 10,
+                    field: Field::MethodName,
+                    tf: 1,
+                },
+                TermRef {
+                    term_id: 11,
+                    field: Field::MethodName,
+                    tf: 1,
+                },
+            ],
+        };
+
+        let caps = vec![cap0, cap1, cap2];
 
         // Build postings.
         let mut postings: HashMap<u32, Vec<Posting>> = HashMap::default();
@@ -439,6 +524,32 @@ mod tests {
         );
         assert!(!hits.is_empty());
         assert_eq!(hits[0].cap_id, 0);
+    }
+
+    #[test]
+    fn chinese_business_query_expands_to_code_terms() {
+        let (caps, postings, vocab, avgdl) = make_test_index();
+        let hits = search(
+            "获取法人身份证账号姓名",
+            &caps,
+            &postings,
+            &vocab,
+            avgdl,
+            &ScorerConfig::default(),
+            10,
+            true,
+        );
+        assert!(!hits.is_empty());
+        assert_eq!(hits[0].cap_id, 2);
+        let explain = hits[0].explain.as_ref().unwrap();
+        assert!(explain
+            .term_hits
+            .iter()
+            .any(|hit| hit.term == "legalperson" && hit.is_synonym));
+        assert!(explain
+            .term_hits
+            .iter()
+            .any(|hit| hit.term == "accountname" && hit.is_synonym));
     }
 
     #[test]

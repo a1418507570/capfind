@@ -57,6 +57,13 @@ or reusable implementation, treat capfind as the first search preflight:
 4. Use `rg` or `git grep` after capfind to verify cited candidates, inspect
    call sites, or supplement empty/surprising results.
 
+Chinese business terms are expanded at search time into common code-field
+tokens. For example, "获取法人身份证账号姓名" can match identifiers such as
+`legalPerson`, `idCard`, and `accountName` without the agent knowing those code
+terms first. When project-specific Chinese terms still miss, call
+`capfind_diagnose_query` and retry with class, method, path, or field terms from
+the local codebase.
+
 | Agent intent | Tool | Expected use |
 |---|---|---|
 | Plan a new capability or API call | `capfind_context` | Blind-search reusable internal capabilities, external APIs, jar methods, and entry paths. |
@@ -174,6 +181,7 @@ Agents without MCP can still use capfind through shell commands:
 test -f .capfind/index.cfi && capfind stats
 capfind doctor --json
 capfind context "add mdm query endpoint" --limit 5
+capfind context "获取法人身份证账号姓名" --limit 5
 capfind find "mdm query" --limit 5
 capfind diagnose-query "mdm query"
 capfind diagnose-file src/main/java/com/demo/MdmController.java

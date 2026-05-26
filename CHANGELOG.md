@@ -6,7 +6,9 @@ All notable changes are documented here. Chinese comes first, with English summa
 
 ## [Unreleased]
 
-暂无。
+### 新增 / Added
+
+- 中文业务 query 会在搜索侧确定性扩展为常见代码字段词，例如“获取法人身份证账号姓名”可扩展到 `legalperson`、`idcard`、`account`、`accountname` 等词，提升 Agent `context` / `agent` preflight 在中文意图下的命中率。
 
 ## [0.3.0] - 2026-05-26
 

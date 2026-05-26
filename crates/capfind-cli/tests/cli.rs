@@ -354,6 +354,21 @@ public class FraudController {
 }
 "#;
 
+const LEGAL_PERSON_CONTROLLER: &str = r#"
+package com.demo;
+
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/legal-person")
+public class LegalPersonController {
+    @GetMapping("/id-card/account-name")
+    public LegalPersonAccountNameResponse getLegalPersonIdCardAccountName(LegalPersonIdCardQuery request) {
+        return null;
+    }
+}
+"#;
+
 const VENDOR_CLIENT_API_SOURCE: &str = r#"
 package com.vendor;
 
@@ -583,6 +598,12 @@ fn init_product_config_generates_safe_agent_templates() {
 #[test]
 fn index_find_show_stats_work_end_to_end() {
     let dir = fixture_repo();
+    fs::write(
+        dir.path()
+            .join("src/main/java/com/demo/LegalPersonController.java"),
+        LEGAL_PERSON_CONTROLLER,
+    )
+    .unwrap();
 
     capfind()
         .current_dir(dir.path())
@@ -652,6 +673,59 @@ tags = ["agent-facing"]
         .as_str()
         .unwrap()
         .ends_with("MdmController.java"));
+
+    let chinese_context = capfind()
+        .current_dir(dir.path())
+        .args(["context", "获取法人身份证账号姓名", "--limit", "5"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let chinese_context_json: Value = serde_json::from_slice(&chinese_context).unwrap();
+    assert!(chinese_context_json["candidates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|candidate| {
+            candidate["name"] == "GET /legal-person/id-card/account-name"
+                && candidate["entrypoints"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|entrypoint| {
+                        entrypoint["kind"] == "http"
+                            && entrypoint["value"] == "GET /legal-person/id-card/account-name"
+                    })
+                && candidate["evidence"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|evidence| {
+                        evidence["file"]
+                            .as_str()
+                            .is_some_and(|file| file.ends_with("LegalPersonController.java"))
+                    })
+        }));
+
+    let chinese_diagnose = capfind()
+        .current_dir(dir.path())
+        .args(["diagnose-query", "获取法人身份证账号姓名"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let chinese_diagnose_json: Value = serde_json::from_slice(&chinese_diagnose).unwrap();
+    assert_eq!(
+        chinese_diagnose_json["diagnosis"],
+        "ranked_candidates_available"
+    );
+    assert!(chinese_diagnose_json["phrase_expansions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|expansion| expansion["phrase"] == "法人"));
 
     let go_find = capfind()
         .current_dir(dir.path())

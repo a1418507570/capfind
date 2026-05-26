@@ -246,10 +246,15 @@ When the user asks for an existing interface, capability, call chain, or reusabl
 test -f .capfind/index.cfi && capfind stats
 capfind doctor --json
 capfind context add mdm query endpoint
+capfind context 获取法人身份证账号姓名 --limit 5
 capfind find mdm query --limit 5
 capfind context use jackson object mapper --limit 5
 capfind mcp --call capfind_context --args '{"task":"use jackson object mapper","limit":5}'
 ```
+
+中文业务 query 会在搜索侧确定性扩展为常见代码字段词，例如“法人 / 身份证 / 账号 / 姓名”会辅助匹配 `legalPerson`、`idCard`、`accountName` 等 identifier token。项目专有词仍建议写成代码里真实出现的类名、方法名、路径片段或字段名。
+
+Chinese business queries are deterministically expanded at search time into common code-field terms. For example, terms like legal person, ID card, account, and name help match identifier tokens such as `legalPerson`, `idCard`, and `accountName`. For project-specific vocabulary, prefer terms that actually appear in class names, methods, paths, or fields.
 
 `capfind agent` 仍保留为兼容 Hook / IDE Hook 的前置检查入口：
 
