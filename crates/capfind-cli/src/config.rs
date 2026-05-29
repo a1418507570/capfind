@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use anyhow::{bail, Context, Result};
-use capfind_search::ScorerConfig;
+use capfind_search::{ScorerConfig, SynonymRule, CONFIGURED_SYNONYM_WEIGHT};
 
 #[derive(Debug, Clone, Default)]
 pub struct CapfindConfig {
@@ -126,6 +126,13 @@ pub(crate) fn parse(content: &str) -> Result<CapfindConfig> {
                 "b" => cfg.search.b = parse_b(value, line_no + 1)?,
                 _ => {}
             },
+            "synonyms" => {
+                cfg.search.synonym_rules.push(SynonymRule::new(
+                    parse_map_key(key),
+                    parse_string_array("synonyms", value, line_no + 1)?,
+                    CONFIGURED_SYNONYM_WEIGHT,
+                ));
+            }
             "ownership.modules" => {
                 cfg.ownership.modules.insert(
                     parse_map_key(key),
@@ -326,6 +333,29 @@ b = 0.2
         .unwrap();
         assert_eq!(cfg.search.k1, 1.7);
         assert_eq!(cfg.search.b, 0.2);
+    }
+
+    #[test]
+    fn parses_configured_synonyms() {
+        let cfg = parse(
+            r#"
+[synonyms]
+商户资料 = ["merchantAccount", "merchantId"]
+"客户主体" = ["customerName", "enterpriseName"]
+"#,
+        )
+        .unwrap();
+
+        assert_eq!(cfg.search.synonym_rules.len(), 2);
+        let merchant = &cfg.search.synonym_rules[0];
+        assert_eq!(merchant.trigger, "商户资料");
+        assert!(merchant.terms.contains(&"merchantaccount".to_string()));
+        assert!(merchant.terms.contains(&"merchantid".to_string()));
+
+        let customer = &cfg.search.synonym_rules[1];
+        assert_eq!(customer.trigger, "客户主体");
+        assert!(customer.terms.contains(&"customername".to_string()));
+        assert!(customer.terms.contains(&"enterprisename".to_string()));
     }
 
     #[test]

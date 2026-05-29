@@ -1316,6 +1316,29 @@ fn diagnose_query_json(
             })
         })
         .collect::<Vec<_>>();
+    let configured_synonyms = cfg
+        .search
+        .synonym_rules
+        .iter()
+        .filter(|rule| rule.matches_query(query, &query_tokens))
+        .map(|rule| {
+            let terms = rule
+                .terms
+                .iter()
+                .map(|term| {
+                    json!({
+                        "term": term,
+                        "weight": rule.weight,
+                        "in_vocab": vocab_set.contains(term.as_str()),
+                    })
+                })
+                .collect::<Vec<_>>();
+            json!({
+                "trigger": rule.trigger,
+                "terms": terms,
+            })
+        })
+        .collect::<Vec<_>>();
     let has_query_vocab_signal = query_tokens
         .iter()
         .any(|token| vocab_set.contains(token.as_str()))
@@ -1329,6 +1352,13 @@ fn diagnose_query_json(
                 .terms
                 .iter()
                 .any(|term| vocab_set.contains(term.term))
+        })
+        || cfg.search.synonym_rules.iter().any(|rule| {
+            rule.matches_query(query, &query_tokens)
+                && rule
+                    .terms
+                    .iter()
+                    .any(|term| vocab_set.contains(term.as_str()))
         });
 
     let raw_top = hits
@@ -1377,6 +1407,7 @@ fn diagnose_query_json(
         },
         "tokens": token_diagnostics,
         "phrase_expansions": phrase_expansions,
+        "configured_synonyms": configured_synonyms,
         "result_counts": {
             "raw_hits": hits.len(),
             "filtered_hits": filtered.len(),
@@ -5576,7 +5607,11 @@ version = 1
 # "com.fasterxml.jackson.core" = "Runtime Platform"
 
 [synonyms]
+# Project-specific business vocabulary. Triggers may be Chinese or code terms;
+# values are tokenized like source identifiers, so legalPersonId matches
+# legalpersonid / legal / person / id where those tokens exist in the index.
 # mdm = ["master-data"]
+# "商户资料" = ["merchantAccount", "merchantId"]
 "#;
 
 const DEFAULT_CAPFINDIGNORE: &str = r#"# capfind ignore file — layered on top of .gitignore.

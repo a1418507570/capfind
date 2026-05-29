@@ -68,6 +68,17 @@ project-specific Chinese terms still miss, call
 `capfind_diagnose_query` and retry with class, method, path, or field terms from
 the local codebase.
 
+Teams can teach capfind local vocabulary through `.capfind/config.toml`:
+
+```toml
+[synonyms]
+商户资料 = ["merchantAccount", "merchantId"]
+"客户主体" = ["customerName", "enterpriseName"]
+```
+
+`capfind_diagnose_query` reports matched `configured_synonyms` so agents can
+explain whether project vocabulary entered the index vocab.
+
 | Agent intent | Tool | Expected use |
 |---|---|---|
 | Plan a new capability or API call | `capfind_context` | Blind-search reusable internal capabilities, external APIs, jar methods, and entry paths. |

@@ -11,11 +11,16 @@ use crate::tokenize;
 pub struct ScorerConfig {
     pub k1: f32,
     pub b: f32,
+    pub synonym_rules: Vec<synonyms::SynonymRule>,
 }
 
 impl Default for ScorerConfig {
     fn default() -> Self {
-        Self { k1: 1.2, b: 0.4 }
+        Self {
+            k1: 1.2,
+            b: 0.4,
+            synonym_rules: Vec::new(),
+        }
     }
 }
 
@@ -120,6 +125,16 @@ pub fn search(
         for term in expansion.terms {
             if let Some(&tid) = vocab_map.get(term.term) {
                 add_weighted_term(&mut weighted_term_map, tid, term.weight);
+            }
+        }
+    }
+    for rule in &config.synonym_rules {
+        if !rule.matches_query(query, &query_tokens) {
+            continue;
+        }
+        for term in &rule.terms {
+            if let Some(&tid) = vocab_map.get(term.as_str()) {
+                add_weighted_term(&mut weighted_term_map, tid, rule.weight);
             }
         }
     }
@@ -867,6 +882,45 @@ mod tests {
             .term_hits
             .iter()
             .any(|hit| hit.term == "accountname" && hit.is_synonym));
+    }
+
+    #[test]
+    fn configured_synonyms_expand_custom_business_terms() {
+        let (caps, postings, vocab, avgdl) = build_index_from_caps(vec![java_capability(
+            Kind::ServiceMethod,
+            "MerchantAccountService",
+            "selectMerchantAccount",
+            "MerchantAccount selectMerchantAccount(String merchantId)",
+            None,
+            Some("loads merchant account profile"),
+        )]);
+        let mut config = ScorerConfig::default();
+        config.synonym_rules.push(synonyms::SynonymRule::new(
+            "商户资料",
+            vec!["merchantAccount".to_string(), "merchantId".to_string()],
+            synonyms::CONFIGURED_SYNONYM_WEIGHT,
+        ));
+
+        let hits = search(
+            "查询商户资料",
+            &caps,
+            &postings,
+            &vocab,
+            avgdl,
+            &config,
+            10,
+            true,
+        );
+        assert!(!hits.is_empty());
+        assert_eq!(
+            caps[hits[0].cap_id as usize].method,
+            "selectMerchantAccount"
+        );
+        let explain = hits[0].explain.as_ref().unwrap();
+        assert!(explain
+            .term_hits
+            .iter()
+            .any(|hit| hit.term == "merchant" && hit.is_synonym));
     }
 
     #[test]

@@ -35,7 +35,13 @@ service methods, DAO methods, and referenced APIs before adding new code.
 
 ## Next
 
-- Broaden language and framework coverage.
-- Improve graph precision on larger repositories.
-- Keep release packaging and installation smoke tests reliable.
-- Continue reducing noise in AI-facing output.
+| Area | Progress | Status |
+|---|---:|---|
+| LLM-native context entrypoint | 100% | Released in v0.3 |
+| Service map and structured diagnostics | 100% | Released in v0.3 |
+| Chinese business-query expansion | 100% | Released in v0.3.1/v0.3.2 |
+| Project-specific vocabulary via `[synonyms]` | 100% | Implemented on main |
+| Release workflow fallback helper | 100% | Implemented on main |
+| Broader language and framework coverage | 40% | Ongoing |
+| Larger-repo graph precision | 45% | Ongoing |
+| Lower-noise AI-facing output | 70% | Ongoing |

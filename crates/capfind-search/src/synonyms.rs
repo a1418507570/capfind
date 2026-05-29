@@ -5,7 +5,9 @@
 //! indexing) to avoid postings bloat.
 
 use once_cell::sync::Lazy;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
+
+use crate::tokenize;
 
 #[derive(Debug, Clone, Copy)]
 pub struct PhraseTerm {
@@ -19,8 +21,70 @@ pub struct PhraseExpansion {
     pub terms: &'static [PhraseTerm],
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct SynonymRule {
+    pub trigger: String,
+    pub normalized_trigger: String,
+    pub trigger_tokens: Vec<String>,
+    pub terms: Vec<String>,
+    pub weight: f32,
+}
+
 const fn phrase_term(term: &'static str, weight: f32) -> PhraseTerm {
     PhraseTerm { term, weight }
+}
+
+impl SynonymRule {
+    pub fn new(trigger: impl Into<String>, terms: Vec<String>, weight: f32) -> Self {
+        let trigger = trigger.into();
+        let normalized_trigger = normalize_phrase(&trigger);
+        let trigger_tokens = tokenize::tokenize(&trigger);
+        let terms = normalize_terms(terms);
+        Self {
+            trigger,
+            normalized_trigger,
+            trigger_tokens,
+            terms,
+            weight,
+        }
+    }
+
+    pub fn matches_query(&self, query: &str, query_tokens: &[String]) -> bool {
+        if self.terms.is_empty() {
+            return false;
+        }
+        let normalized_query = normalize_phrase(query);
+        if !self.normalized_trigger.is_empty()
+            && normalized_query.contains(self.normalized_trigger.as_str())
+        {
+            return true;
+        }
+        self.trigger_tokens
+            .iter()
+            .any(|trigger| query_tokens.iter().any(|token| token == trigger))
+    }
+}
+
+pub fn normalize_phrase(input: &str) -> String {
+    input
+        .chars()
+        .filter(|ch| ch.is_alphanumeric())
+        .collect::<String>()
+        .to_ascii_lowercase()
+}
+
+fn normalize_terms(terms: Vec<String>) -> Vec<String> {
+    let mut normalized = BTreeSet::new();
+    for term in terms {
+        let compact = normalize_phrase(&term);
+        if compact.len() > 1 {
+            normalized.insert(compact);
+        }
+        for token in tokenize::tokenize(&term) {
+            normalized.insert(token);
+        }
+    }
+    normalized.into_iter().collect()
 }
 
 /// The default synonym table.
@@ -353,6 +417,8 @@ static DEFAULT_PHRASE_SYNONYMS: &[(&str, &[PhraseTerm])] = &[
 /// Weight applied to synonym-expanded terms (< 1.0 to not overpower originals).
 pub const SYNONYM_WEIGHT: f32 = 0.6;
 
+pub const CONFIGURED_SYNONYM_WEIGHT: f32 = 0.75;
+
 /// Expand a single query term using the default synonym table.
 ///
 /// Returns empty slice if the term has no synonyms.
@@ -411,5 +477,24 @@ mod tests {
             && item.terms.iter().any(|term| term.term == "legalpersonid")));
         assert!(expansions.iter().any(|item| item.phrase == "账号姓名"
             && item.terms.iter().any(|term| term.term == "customername")));
+    }
+
+    #[test]
+    fn configured_synonym_rule_normalizes_code_identifiers() {
+        let rule = SynonymRule::new(
+            "商户",
+            vec![
+                "merchantAccount".to_string(),
+                "merchant_id".to_string(),
+                "mchNo".to_string(),
+            ],
+            CONFIGURED_SYNONYM_WEIGHT,
+        );
+        assert!(rule.matches_query("查询商户资料", &tokenize::tokenize("查询商户资料")));
+        assert!(rule.terms.contains(&"merchantaccount".to_string()));
+        assert!(rule.terms.contains(&"merchant".to_string()));
+        assert!(rule.terms.contains(&"account".to_string()));
+        assert!(rule.terms.contains(&"merchantid".to_string()));
+        assert!(rule.terms.contains(&"mchno".to_string()));
     }
 }

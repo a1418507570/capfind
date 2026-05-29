@@ -436,6 +436,20 @@ public class CheckToolController {
 }
 "#;
 
+const MERCHANT_ACCOUNT_SERVICE: &str = r#"
+package com.demo;
+
+import org.springframework.stereotype.Service;
+
+@Service
+public class MerchantAccountService {
+    /** Loads merchant account profile by merchantId. */
+    public MerchantAccount selectMerchantAccount(String merchantId) {
+        return null;
+    }
+}
+"#;
+
 const VENDOR_CLIENT_API_SOURCE: &str = r#"
 package com.vendor;
 
@@ -1984,6 +1998,69 @@ tags = ["agent-facing"]
         dashboard_json["asset_map"]["schema_version"],
         "capfind.asset_map.v1"
     );
+}
+
+#[test]
+fn configured_synonyms_drive_search_and_diagnosis() {
+    let dir = fixture_repo();
+    fs::write(
+        dir.path()
+            .join("src/main/java/com/demo/MerchantAccountService.java"),
+        MERCHANT_ACCOUNT_SERVICE,
+    )
+    .unwrap();
+
+    capfind()
+        .current_dir(dir.path())
+        .arg("init")
+        .assert()
+        .success();
+    fs::write(
+        dir.path().join(".capfind/config.toml"),
+        r#"
+version = 1
+
+[synonyms]
+商户资料 = ["merchantAccount", "merchantId"]
+"#,
+    )
+    .unwrap();
+    capfind()
+        .current_dir(dir.path())
+        .arg("index")
+        .assert()
+        .success();
+
+    let custom_synonym_find = capfind()
+        .current_dir(dir.path())
+        .args(["find", "查询商户资料", "--json"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let custom_synonym_json: Value = serde_json::from_slice(&custom_synonym_find).unwrap();
+    assert!(custom_synonym_json["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|candidate| candidate["method"] == "selectMerchantAccount"));
+
+    let custom_synonym_diagnose = capfind()
+        .current_dir(dir.path())
+        .args(["diagnose-query", "查询商户资料"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let custom_synonym_diagnose_json: Value =
+        serde_json::from_slice(&custom_synonym_diagnose).unwrap();
+    assert!(custom_synonym_diagnose_json["configured_synonyms"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|rule| rule["trigger"] == "商户资料"));
 }
 
 #[test]

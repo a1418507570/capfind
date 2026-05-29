@@ -12,5 +12,5 @@ pub mod synonyms;
 pub mod tokenize;
 
 pub use score::{search, ExplainTrace, Hit, ScorerConfig, TermHit, FIELD_WEIGHTS};
-pub use synonyms::SYNONYM_WEIGHT;
+pub use synonyms::{SynonymRule, CONFIGURED_SYNONYM_WEIGHT, SYNONYM_WEIGHT};
 pub use tokenize::{split_camel, tokenize, tokenize_path};

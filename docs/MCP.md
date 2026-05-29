@@ -80,9 +80,9 @@ capfind mcp --call capfind_diagnose_query --args '{"query":"mdm query","limit":5
 capfind mcp --call capfind_diagnose_query --args '{"query":"mdm query","lang":"java","kind":"endpoint"}'
 ```
 
-返回 `capfind.query_diagnosis.v1`，包含 query token 是否进入词表、同义词命中、带权重的中文业务短语扩展、raw top hits、过滤后的 top hits、过滤损失和下一步建议。它用于回答“为什么结果不符合预期”：是代码没有被索引、parser 没覆盖、query 词不在 vocab、过滤器过窄，还是已有候选排在后面。
+返回 `capfind.query_diagnosis.v1`，包含 query token 是否进入词表、同义词命中、带权重的中文业务短语扩展、命中的 `[synonyms]` 配置扩展、raw top hits、过滤后的 top hits、过滤损失和下一步建议。它用于回答“为什么结果不符合预期”：是代码没有被索引、parser 没覆盖、query 词不在 vocab、过滤器过窄，还是已有候选排在后面。
 
-Returns `capfind.query_diagnosis.v1`, including query-token vocab presence, synonym hits, weighted Chinese business phrase expansions, raw top hits, filtered top hits, filter loss, and next actions. It answers why results are unexpected: unindexed code, parser coverage gap, query terms missing from vocab, overly narrow filters, or candidates ranked lower than expected.
+Returns `capfind.query_diagnosis.v1`, including query-token vocab presence, synonym hits, weighted Chinese business phrase expansions, matched `[synonyms]` config expansions, raw top hits, filtered top hits, filter loss, and next actions. It answers why results are unexpected: unindexed code, parser coverage gap, query terms missing from vocab, overly narrow filters, or candidates ranked lower than expected.
 
 ### `capfind_diagnose_file`
 

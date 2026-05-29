@@ -6,7 +6,14 @@ All notable changes are documented here. Chinese comes first, with English summa
 
 ## [Unreleased]
 
-暂无。
+### 新增 / Added
+
+- `.capfind/config.toml` 的 `[synonyms]` 现在会真正参与搜索：项目可以把本地业务词映射到代码里真实出现的类名、方法、字段或路径 token，帮助 Agent 用自然语言盲搜项目专有能力。
+- 新增 `scripts/publish-release.sh`，用于推送/确认 release tag、等待 GitHub Actions Release workflow，并在 workflow 未触发或失败时使用本地已校验 `target/dist` 资产发布 GitHub Release。
+
+### 改进 / Changed
+
+- `diagnose-query` / `capfind_diagnose_query` 输出新增 `configured_synonyms`，可解释项目自定义业务词是否命中索引词表。
 
 ## [0.3.2] - 2026-05-26
 

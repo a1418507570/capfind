@@ -232,6 +232,15 @@ git tag v0.3.2
 git push origin v0.3.2
 ```
 
+如果 tag push 没有触发 Release workflow，或 workflow 失败，可以使用发布脚本等待自动发布并回退到本地已校验资产：
+
+If a tag push does not create a Release workflow run, or if the workflow fails, use the publish helper to wait for the automatic path and fall back to locally verified assets:
+
+```bash
+cargo xtask dist
+scripts/publish-release.sh v0.3.2
+```
+
 ## Agent 上下文 / Agent context
 
 `capfind context` 是给 AI coding agent 的主入口。它返回低 token 的 `capfind.context.v1` evidence packet，包含候选类型、入口、可调用性、封装/外部关系、证据、置信度和候选质量信号。Agent 不需要先知道包名或模块名，可以直接用任务意图盲搜：
@@ -255,6 +264,16 @@ capfind mcp --call capfind_context --args '{"task":"use jackson object mapper","
 中文业务 query 会在搜索侧确定性扩展为常见代码字段词，例如“法人 / 身份证 / 账号 / 姓名”会辅助匹配 `legalPerson`、`legalPersonId`、`identityNo`、`accountInfo`、`accountList`、`relatedAccount`、`accountName` 等 identifier token。账号/法人类 query 会优先提升账号信息链路；OCR / 验真 / 校验类接口只有在 query 明确包含对应意图时才保持高优先级。项目专有词仍建议写成代码里真实出现的类名、方法名、路径片段或字段名。
 
 Chinese business queries are deterministically expanded at search time into common code-field terms. For example, terms like legal person, ID card, account, and name help match identifier tokens such as `legalPerson`, `legalPersonId`, `identityNo`, `accountInfo`, `accountList`, `relatedAccount`, and `accountName`. Account/legal-person queries prioritize account-information paths; OCR / verification candidates stay high priority only when that intent is explicit. For project-specific vocabulary, prefer terms that actually appear in class names, methods, paths, or fields.
+
+项目专有业务词可以在 `.capfind/config.toml` 的 `[synonyms]` 中补充。左侧是用户或 Agent 可能说的词，右侧是代码里真实出现的字段、类名、方法片段或路径词；右侧会按 capfind 的 identifier tokenizer 标准化，所以 `merchantAccount` 会辅助匹配 `merchantaccount`、`merchant`、`account`：
+
+Project-specific business vocabulary can be added through `[synonyms]` in `.capfind/config.toml`. The left-hand side is what users or agents may say; the right-hand side should be real field, class, method, or path terms from the codebase. Values are normalized by capfind's identifier tokenizer, so `merchantAccount` helps match `merchantaccount`, `merchant`, and `account`:
+
+```toml
+[synonyms]
+商户资料 = ["merchantAccount", "merchantId"]
+"客户主体" = ["customerName", "enterpriseName"]
+```
 
 `capfind agent` 仍保留为兼容 Hook / IDE Hook 的前置检查入口：
 
